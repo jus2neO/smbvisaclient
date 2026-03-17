@@ -181,8 +181,12 @@ export default function Portal() {
         btn.innerHTML = originalText;
         alert("This connects to the database. For demo, we will log you in to a mock profile.");
         
+        const inputValue = e.target.querySelector('input').value;
+        const generatedId = `SMB-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        const finalId = (inputValue && inputValue.toUpperCase().startsWith('SMB-')) ? inputValue.toUpperCase() : generatedId;
+
         setSelectedCountryObj({ name: "United Kingdom", flag: "🇬🇧" });
-        setScoreData({ score: 85, trackingId: e.target.querySelector('input').value || "SMB-MOCK88" });
+        setScoreData({ score: 85, trackingId: finalId });
         setFormData(prev => ({ ...prev, fname: "Jane", lname: "Doe" }));
         
         setCurrentView('dashboard');
@@ -235,14 +239,8 @@ export default function Portal() {
     <div className="py-6 md:py-10 px-4 bg-gray-50 dark:bg-slate-950 min-h-screen text-gray-900 dark:text-gray-100 transition-colors duration-300">
       
       {/* Top Bar */}
-      <div className="max-w-5xl mx-auto mb-8 flex justify-between items-center">
-          <Link to="/" className="text-gray-500 dark:text-gray-400 font-bold hover:text-smb-blue dark:hover:text-blue-400 transition"><i className="fas fa-arrow-left"></i> Main Site</Link>
-          <div className="flex gap-4 items-center">
-              <button onClick={toggleTheme} className="bg-white dark:bg-slate-800 p-2.5 rounded-full border border-gray-200 dark:border-slate-700 shadow-sm text-gray-500 dark:text-gray-400 hover:text-smb-blue dark:hover:text-blue-400 transition">
-                  <i className={`fas ${isDark ? 'fa-sun' : 'fa-moon'} w-5 h-5 flex items-center justify-center`}></i>
-              </button>
-              <img src="https://i.postimg.cc/d1RpQnwF/smb-logo-v3.png" className="h-10 dark:brightness-0 dark:invert transition-all" alt="SMB Logo" onError={(e) => {e.target.src='smb-logo-v3.png'}} />
-          </div>
+      <div className="max-w-5xl mx-auto mb-8 flex items-center pt-4">
+          <Link to="/" className="text-gray-500 dark:text-gray-400 font-bold hover:text-[#0b1136] dark:hover:text-blue-400 transition ml-auto"><i className="fas fa-arrow-left"></i> Back to Main Site</Link>
       </div>
 
       <div id="portal-card" className="max-w-5xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-gray-100 dark:border-slate-700 transition-colors duration-300">
@@ -494,9 +492,9 @@ export default function Portal() {
                       </h3>
                       <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-8">Registered Client</p>
                       
-                      <div className="bg-gray-50 dark:bg-slate-800 w-full p-5 rounded-2xl border border-gray-100 dark:border-slate-600">
+                      <div className="bg-[#0b1136] dark:bg-slate-800 w-full p-5 rounded-2xl border border-gray-100 dark:border-slate-600">
                           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-bold uppercase tracking-widest">Tracking ID</p>
-                          <p className="text-xl md:text-2xl font-mono font-black text-smb-blue dark:text-white">{scoreData.trackingId}</p>
+                          <p className="text-xl md:text-2xl font-mono font-black text-white">{scoreData.trackingId}</p>
                       </div>
                   </div>
 
@@ -533,7 +531,7 @@ export default function Portal() {
                           </p>
                       </div>
                       
-                      <button onClick={() => { setCurrentView('booking'); window.scrollTo(0,0); }} className="mt-8 w-full bg-white hover:bg-gray-100 text-smb-blue py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition relative z-10 text-sm md:text-base">
+                      <button onClick={() => { setCurrentView('booking'); window.scrollTo(0,0); }} className="mt-8 w-full bg-white hover:bg-gray-100 text-[#0b1136] py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition relative z-10 text-sm md:text-base">
                           <i className="fas fa-calendar-alt mr-2"></i> Book Formal Consultation
                       </button>
                   </div>
@@ -625,7 +623,7 @@ export default function Portal() {
                               <button 
                                   onClick={confirmBooking} 
                                   disabled={!selectedDate || !selectedTime}
-                                  className={`w-full bg-smb-gold hover:bg-amber-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition ${(!selectedDate || !selectedTime) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  className={`w-full bg-[#b45309] hover:bg-amber-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition ${(!selectedDate || !selectedTime) ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                   Confirm Appointment
                               </button>
