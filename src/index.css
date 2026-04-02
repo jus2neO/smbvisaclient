@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@theme {
+  --color-smb-blue: #0b1136;
+  --color-smb-gold: #b45309;
+}
+
+@variant dark (&:where(.dark, .dark *));
 
 :root {
    --smb-blue: #0b1136;

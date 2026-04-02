@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import Portal from './pages/Portal';
+import Terms from './pages/Terms';
 
 // Very basic FAQ component since FAQ.html was empty
 function FAQ() {
@@ -18,7 +19,7 @@ function FAQ() {
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <HashRouter>
         <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors">
           <Navbar />
           <main className="flex-grow">
@@ -26,11 +27,12 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/portal" element={<Portal />} />
+              <Route path="/terms" element={<Terms />} />
             </Routes>
           </main>
           <Footer />
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </ThemeProvider>
   );
 }

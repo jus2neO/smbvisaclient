@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const destinations = [
+  // ... (destinations array remains the same)
   { name: "Finland", img: "https://images.unsplash.com/photo-1516132006923-6cf348e5dee2?auto=format&fit=crop&q=80&w=800", services: "Study Visa • Business Visa • Visit Visa • Marriage Visa • Migrate" },
   { name: "Belgium", img: "https://images.unsplash.com/photo-1559113513-d5e09c78b9dd?auto=format&fit=crop&q=80&w=800", services: "Study Visa • Business Visa • Visit Visa • Marriage Visa" },
   { name: "Austria", img: "https://images.unsplash.com/photo-1516550893923-42d28e5677af?auto=format&fit=crop&q=80&w=800", services: "Study Visa • Business Visa • Visit Visa • Migrate" },
@@ -20,15 +21,21 @@ const destinations = [
 ];
 
 export default function Home() {
+  const location = useLocation();
   
-  // Handling hash links on initial load
+  // Handling hash links
   useEffect(() => {
-    if (window.location.hash) {
-      const id = window.location.hash.replace('#', '');
+    if (location.hash) {
+      const id = location.hash.replace('#', '');
       const element = document.getElementById(id);
-      if (element) element.scrollIntoView({ behavior: 'smooth' });
+      if (element) {
+        // Delay slightly to ensure content is rendered
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
     }
-  }, []);
+  }, [location]);
 
   return (
     <>

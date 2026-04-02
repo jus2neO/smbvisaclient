@@ -73,9 +73,21 @@ export default function Portal() {
   // Assessment State
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState({
-      fname: '', lname: '', email: '', phone: '', work: '', city: '',
-      civil: 'Single', referral: 'Social Media', terms: false, password: ''
+      fname: '', lname: '', middleName: '', positionApplied: '',
+      email: '', phone: '', landline: '', facebook: '',
+      birthMonth: '', birthDay: '', birthYear: '',
+      gender: 'Male', heightCm: '', weightKg: '',
+      province: '', cityMunicipality: '', completeAddress: '',
+      referral: 'Social Media', terms: false, password: ''
   });
+  
+  // Education state
+  const [educationList, setEducationList] = useState([]);
+  const [currentEdu, setCurrentEdu] = useState({ level: '', school: '', course: '', dateFrom: '', dateTo: '' });
+  
+  // Work History state
+  const [workHistoryList, setWorkHistoryList] = useState([]);
+  const [currentWork, setCurrentWork] = useState({ company: '', position: '', description: '', country: 'Philippines', dateFrom: '', dateTo: '' });
   const [emailError, setEmailError] = useState('');
   const [selectedCountryObj, setSelectedCountryObj] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -132,12 +144,38 @@ export default function Portal() {
   };
 
   const validateStep1 = () => {
-    if(!formData.fname || !formData.lname || !formData.terms || emailError || !formData.email) {
-        alert("Please fill required fields correctly and agree to terms.");
+    if (!formData.fname || !formData.lname || !formData.positionApplied || !formData.terms || emailError || !formData.email || !formData.phone) {
+        alert('Please fill all required fields (*) correctly and agree to the Terms & Conditions.');
         return false;
     }
     return true;
   };
+
+  const handleEduChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentEdu(prev => ({ ...prev, [name]: value }));
+  };
+
+  const addEducation = () => {
+    if (!currentEdu.level || !currentEdu.school) { alert('Please fill in Education Level and School Name.'); return; }
+    setEducationList(prev => [...prev, currentEdu]);
+    setCurrentEdu({ level: '', school: '', course: '', dateFrom: '', dateTo: '' });
+  };
+
+  const removeEducation = (idx) => setEducationList(prev => prev.filter((_, i) => i !== idx));
+
+  const handleWorkChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentWork(prev => ({ ...prev, [name]: value }));
+  };
+
+  const addWork = () => {
+    if (!currentWork.company || !currentWork.position) { alert('Please fill in Company Name and Position.'); return; }
+    setWorkHistoryList(prev => [...prev, currentWork]);
+    setCurrentWork({ company: '', position: '', description: '', country: 'Philippines', dateFrom: '', dateTo: '' });
+  };
+
+  const removeWork = (idx) => setWorkHistoryList(prev => prev.filter((_, i) => i !== idx));
 
   const handleNextStep = (targetStep) => {
     if (targetStep === 2 && !validateStep1()) return;
@@ -249,10 +287,10 @@ export default function Portal() {
           {currentView === 'login' && (
             <div className="p-8 md:p-16 max-w-lg mx-auto w-full">
               <div className="text-center mb-8">
-                  <div className="w-20 h-20 bg-blue-50 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4 text-smb-blue dark:text-blue-400 text-3xl">
+                  <div className="w-20 h-20 bg-blue-50 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4 text-[#0b1136] dark:text-blue-400 text-3xl">
                       <i className="fas fa-user-lock"></i>
                   </div>
-                  <h2 className="text-3xl font-black text-smb-blue dark:text-white">Client Login</h2>
+                  <h2 className="text-3xl font-black text-[#0b1136] dark:text-white">Client Login</h2>
                   <p className="text-gray-500 dark:text-gray-400 mt-2">Access your saved visa application profile</p>
               </div>
               <form onSubmit={handleLogin} className="space-y-5">
@@ -264,12 +302,12 @@ export default function Portal() {
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Password</label>
                       <input type="password" required className="form-input" placeholder="••••••••" />
                   </div>
-                  <button type="submit" className="w-full bg-smb-blue hover:bg-blue-900 text-white py-3.5 rounded-xl font-bold transition shadow-lg mt-4">
+                  <button type="submit" className="w-full bg-[#0b1136] hover:bg-blue-900 text-white py-3.5 rounded-xl font-bold transition shadow-lg mt-4">
                       Secure Login
                   </button>
                   <div className="text-center mt-6">
                       <p className="text-sm text-gray-600 dark:text-gray-400">No account yet? <br/> 
-                          <button type="button" onClick={() => { setCurrentView('register'); setStep(0); }} className="text-smb-gold dark:text-amber-500 font-bold hover:underline mt-2">Take the Free Risk Assessment</button>
+                          <button type="button" onClick={() => { setCurrentView('register'); setStep(0); }} className="text-[#b45309] dark:text-amber-500 font-bold hover:underline mt-2">Take the Free Risk Assessment</button>
                       </p>
                   </div>
               </form>
@@ -279,7 +317,7 @@ export default function Portal() {
           {/* ASSESSMENT / REGISTRATION VIEW */}
           {currentView === 'register' && (
             <div>
-              <div className="bg-smb-blue dark:bg-slate-900 text-white p-6 md:p-8 text-center border-b-4 border-smb-gold dark:border-amber-500">
+              <div className="bg-[#0b1136] dark:bg-slate-900 text-white p-6 md:p-8 text-center border-b-4 border-[#b45309] dark:border-amber-500">
                   <h2 className="text-2xl md:text-3xl font-black tracking-wide">Visa Eligibility Assessment</h2>
                   <p className="text-blue-200 mt-2 text-sm max-w-2xl mx-auto">Find out if you qualify for immigration pathways in minutes.</p>
               </div>
@@ -309,19 +347,19 @@ export default function Portal() {
                   {/* STEP 0: Intro */}
                   {step === 0 && (
                     <div className="text-center py-10 animate-[fadeIn_0.4s_ease-in-out]">
-                        <div className="w-24 h-24 bg-orange-50 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6 text-smb-gold dark:text-amber-500 text-4xl">
+                        <div className="w-24 h-24 bg-orange-50 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6 text-[#b45309] dark:text-amber-500 text-4xl">
                             <i className="fas fa-plane-departure"></i>
                         </div>
                         <h3 className="text-3xl font-black text-[#0b1136] dark:text-white mb-4">Ready to build your future?</h3>
                         <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed text-lg">
                             This comprehensive questionnaire will analyze your current situation and capabilities to calculate your personalized <b>Points-Based Visa Eligibility Score</b>.
                         </p>
-                        <button onClick={() => setStep(1)} className="bg-smb-blue hover:bg-blue-900 text-white px-12 py-4 rounded-full font-black tracking-widest uppercase transition shadow-lg shadow-blue-900/20">
+                        <button onClick={() => setStep(1)} className="bg-[#0b1136] hover:bg-blue-900 text-white px-12 py-4 rounded-full font-black tracking-widest uppercase transition shadow-lg shadow-blue-900/20">
                             Start Assessment
                         </button>
                         <div className="mt-10 pt-8 border-t border-gray-100 dark:border-slate-700">
                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Already took the assessment?</p>
-                            <button onClick={() => setCurrentView('login')} className="text-sm border-2 border-smb-blue dark:border-blue-400 text-smb-blue dark:text-blue-400 px-8 py-2.5 rounded-full font-bold hover:bg-blue-50 dark:hover:bg-slate-700 transition">
+                            <button onClick={() => setCurrentView('login')} className="text-sm border-2 border-[#0b1136] dark:border-blue-400 text-[#0b1136] dark:text-blue-400 px-8 py-2.5 rounded-full font-bold hover:bg-blue-50 dark:hover:bg-slate-700 transition">
                                 <i className="fas fa-sign-in-alt mr-2"></i> Client Login
                             </button>
                         </div>
@@ -330,37 +368,256 @@ export default function Portal() {
 
                   {/* STEP 1: Personal Info */}
                   {step === 1 && (
-                    <div className="animate-[fadeIn_0.4s_ease-in-out]">
-                        <h3 className="text-2xl font-black text-center text-smb-blue dark:text-white mb-8">Tell us about yourself</h3>
+                    <div className="animate-[fadeIn_0.4s_ease-in-out] space-y-10">
+                        <h3 className="text-2xl font-black text-center text-[#0b1136] dark:text-white">Tell us about yourself</h3>
+
+                        {/* --- Position Applied --- */}
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Position Applied:</label>
+                          <textarea id="positionApplied" rows={3} className="form-input resize-none" placeholder="Enter the position(s) you want to apply for..." value={formData.positionApplied} onChange={handleInputChange}/>
+                          <p className="text-xs text-gray-400 mt-1">Please enter at least (1) position you want to apply for; this will serve as our basis to send you job alerts and also to recommend you positions to apply based on our job openings.</p>
+                        </div>
+
+                        {/* --- Name Row --- */}
+                        <div className="grid md:grid-cols-3 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Last Name:</label>
+                            <input type="text" id="lname" className="form-input" placeholder="Last Name" value={formData.lname} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*First Name:</label>
+                            <input type="text" id="fname" className="form-input" placeholder="First Name" value={formData.fname} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Middle Name:</label>
+                            <input type="text" id="middleName" className="form-input" placeholder="Middle Name" value={formData.middleName} onChange={handleInputChange}/>
+                          </div>
+                        </div>
+
+                        {/* --- Birth Date & Gender --- */}
                         <div className="grid md:grid-cols-2 gap-6">
-                            <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">First Name *</label><input type="text" id="fname" className="form-input" value={formData.fname} onChange={handleInputChange}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Last Name *</label><input type="text" id="lname" className="form-input" value={formData.lname} onChange={handleInputChange}/></div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Email *</label>
-                                <input type="email" id="email" className="form-input" style={{borderColor: emailError ? '#ef4444' : (formData.email ? '#10b981' : '')}} value={formData.email} onChange={handleInputChange}/>
-                                {emailError && <p className="text-xs text-red-500 font-bold mt-1">{emailError}</p>}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Birth Date:</label>
+                            <div className="flex gap-2">
+                              <select id="birthMonth" className="form-input" value={formData.birthMonth} onChange={handleInputChange}>
+                                <option value="">Please select</option>
+                                {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m,i) => <option key={m} value={String(i+1).padStart(2,'0')}>{m}</option>)}
+                              </select>
+                              <input type="text" id="birthDay" className="form-input w-20 text-center" placeholder="DD" maxLength={2} value={formData.birthDay} onChange={handleInputChange}/>
+                              <input type="text" id="birthYear" className="form-input w-24 text-center" placeholder="YYYY" maxLength={4} value={formData.birthYear} onChange={handleInputChange}/>
                             </div>
-                            <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Contact No. *</label><input type="tel" id="phone" className="form-input" placeholder="+63 9xx xxx xxxx" value={formData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9+]/g, ''); handleInputChange(e); }}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Current Job Title *</label><input type="text" id="work" className="form-input" placeholder="e.g. Registered Nurse" value={formData.work} onChange={handleInputChange}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">City/Province *</label><input type="text" id="city" className="form-input" value={formData.city} onChange={handleInputChange}/></div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Civil Status *</label>
-                                <select id="civil" className="form-input" value={formData.civil} onChange={handleInputChange}><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option></select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Gender:</label>
+                            <div className="flex items-center gap-6 pt-1">
+                              {['Male','Female'].map(g => (
+                                <label key={g} className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="gender" value={g} checked={formData.gender === g} onChange={() => setFormData(prev => ({...prev, gender: g}))} className="w-4 h-4 accent-[#0b1136]"/>
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{g}</span>
+                                </label>
+                              ))}
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">How did you find us? *</label>
-                                <select id="referral" className="form-input" value={formData.referral} onChange={handleInputChange}><option>Social Media</option><option>Friend/Relative</option><option>Google Search</option><option>Event</option></select>
-                            </div>
+                          </div>
                         </div>
-                        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-700">
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <input type="checkbox" id="terms" className="w-5 h-5 text-smb-blue rounded border-gray-300 focus:ring-smb-blue" checked={formData.terms} onChange={handleInputChange}/> 
-                                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">I agree to the <a href="#" className="text-smb-blue dark:text-blue-400 hover:underline">Terms & Conditions</a> and Data Privacy Policy. *</span>
+
+                        {/* --- Height/Weight & Mobile/Landline --- */}
+                        <div className="grid md:grid-cols-3 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Height & Weight:</label>
+                            <div className="flex gap-2">
+                              <input type="text" id="heightCm" className="form-input" placeholder="Height (cm)" value={formData.heightCm} onChange={handleInputChange}/>
+                              <input type="text" id="weightKg" className="form-input" placeholder="Weight (kg)" value={formData.weightKg} onChange={handleInputChange}/>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Mobile No.:</label>
+                            <input type="tel" id="phone" className="form-input" placeholder="Mobile No." value={formData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9+]/g, ''); handleInputChange(e); }}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Landline No.:</label>
+                            <input type="tel" id="landline" className="form-input" placeholder="Landline No." value={formData.landline} onChange={handleInputChange}/>
+                          </div>
+                        </div>
+
+                        {/* --- Email & Facebook --- */}
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Email Address:</label>
+                            <input type="email" id="email" className="form-input" placeholder="Email Address" style={{borderColor: emailError ? '#ef4444' : (formData.email ? '#10b981' : '')}} value={formData.email} onChange={handleInputChange}/>
+                            {emailError && <p className="text-xs text-red-500 font-bold mt-1">{emailError}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Facebook Account:</label>
+                            <input type="text" id="facebook" className="form-input" placeholder="Facebook profile URL or name" value={formData.facebook} onChange={handleInputChange}/>
+                          </div>
+                        </div>
+
+                        {/* --- Province / City / Address --- */}
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Province:</label>
+                            <select id="province" className="form-input" value={formData.province} onChange={handleInputChange}>
+                              <option value="">Please select</option>
+                              {["Abra","Agusan del Norte","Agusan del Sur","Aklan","Albay","Antique","Apayao","Aurora","Basilan","Bataan","Batanes","Batangas","Benguet","Biliran","Bohol","Bukidnon","Bulacan","Cagayan","Camarines Norte","Camarines Sur","Camiguin","Capiz","Catanduanes","Cavite","Cebu","Compostela Valley","Cotabato","Davao del Norte","Davao del Sur","Davao Occidental","Davao Oriental","Dinagat Islands","Eastern Samar","Guimaras","Ifugao","Ilocos Norte","Ilocos Sur","Iloilo","Isabela","Kalinga","La Union","Laguna","Lanao del Norte","Lanao del Sur","Leyte","Maguindanao","Marinduque","Masbate","Metro Manila","Misamis Occidental","Misamis Oriental","Mountain Province","Negros Occidental","Negros Oriental","Northern Samar","Nueva Ecija","Nueva Vizcaya","Occidental Mindoro","Oriental Mindoro","Palawan","Pampanga","Pangasinan","Quezon","Quirino","Rizal","Romblon","Samar","Sarangani","Siquijor","Sorsogon","South Cotabato","Southern Leyte","Sultan Kudarat","Sulu","Surigao del Norte","Surigao del Sur","Tarlac","Tawi-Tawi","Zambales","Zamboanga del Norte","Zamboanga del Sur","Zamboanga Sibugay"].map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*City / Municipality:</label>
+                            <input type="text" id="cityMunicipality" className="form-input" placeholder="Please select" value={formData.cityMunicipality} onChange={handleInputChange}/>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Complete Address:</label>
+                          <input type="text" id="completeAddress" className="form-input" placeholder="No. / Street / Barangay" value={formData.completeAddress} onChange={handleInputChange}/>
+                        </div>
+
+                        {/* --- File Uploads --- */}
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Upload your Resume/Biodata:</label>
+                            <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 hover:border-[#0b1136] dark:hover:border-blue-400 transition">
+                              <i className="fas fa-file-upload text-[#0b1136] dark:text-blue-400 text-lg"></i>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Choose File</span>
+                              <input type="file" accept=".pdf,.doc,.docx" className="hidden"/>
                             </label>
+                            <p className="text-xs text-gray-400 mt-1">(Allowed File Type: PDF and MS Word only)</p>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Upload latest Photo:</label>
+                            <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 hover:border-[#b45309] dark:hover:border-amber-500 transition">
+                              <i className="fas fa-image text-[#b45309] dark:text-amber-500 text-lg"></i>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Choose File</span>
+                              <input type="file" accept="image/*" className="hidden"/>
+                            </label>
+                            <p className="text-xs text-gray-400 mt-1">(taken recently within 3 months)</p>
+                          </div>
                         </div>
-                        <div className="mt-10 flex justify-between items-center">
-                            <button onClick={() => setStep(0)} className="text-sm font-bold text-gray-500 hover:text-smb-blue dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
-                            <button onClick={() => handleNextStep(2)} className="bg-smb-blue hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
+
+                        {/* --- Education --- */}
+                        <div>
+                          <h4 className="text-lg font-black text-[#0b1136] dark:text-white mb-4 flex items-center gap-2"><i className="fas fa-graduation-cap text-[#b45309]"></i> Education</h4>
+                          {educationList.length > 0 && (
+                            <div className="space-y-2 mb-4">
+                              {educationList.map((edu, i) => (
+                                <div key={i} className="flex items-center justify-between bg-blue-50 dark:bg-slate-700 px-4 py-3 rounded-xl border border-blue-100 dark:border-slate-600">
+                                  <div>
+                                    <p className="font-bold text-sm text-[#0b1136] dark:text-white">{edu.school} <span className="font-normal text-gray-500">— {edu.level}</span></p>
+                                    {edu.course && <p className="text-xs text-gray-500 dark:text-gray-400">{edu.course}</p>}
+                                  </div>
+                                  <button onClick={() => removeEducation(i)} className="text-red-400 hover:text-red-600 ml-4"><i className="fas fa-trash-alt"></i></button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="bg-gray-50 dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-4">
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Level:</label>
+                                <select name="level" className="form-input" value={currentEdu.level} onChange={handleEduChange}>
+                                  <option value="">Please select</option>
+                                  {["Elementary","High School","Senior High School","Vocational / Tech-Voc","Associate Degree","Bachelor's Degree","Master's Degree","Doctorate / Ph.D."].map(l => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Name of School:</label>
+                                <input type="text" name="school" className="form-input" placeholder="School name" value={currentEdu.school} onChange={handleEduChange}/>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Course:</label>
+                              <input type="text" name="course" className="form-input" placeholder="Course / Strand" value={currentEdu.course} onChange={handleEduChange}/>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-end">
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date From:</label>
+                                <input type="text" name="dateFrom" className="form-input" placeholder="MM/DD/YYYY" value={currentEdu.dateFrom} onChange={handleEduChange}/>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date To:</label>
+                                <input type="text" name="dateTo" className="form-input" placeholder="MM/DD/YYYY" value={currentEdu.dateTo} onChange={handleEduChange}/>
+                              </div>
+                              <div>
+                                <button onClick={addEducation} className="w-full bg-[#0b1136] hover:bg-blue-900 text-white py-2.5 px-4 rounded-xl font-bold text-sm transition shadow-md">
+                                  <i className="fas fa-plus mr-2"></i>Add education
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* --- Work History --- */}
+                        <div>
+                          <h4 className="text-lg font-black text-[#0b1136] dark:text-white mb-4 flex items-center gap-2"><i className="fas fa-briefcase text-[#b45309]"></i> Work History</h4>
+                          {workHistoryList.length > 0 && (
+                            <div className="space-y-2 mb-4">
+                              {workHistoryList.map((w, i) => (
+                                <div key={i} className="flex items-center justify-between bg-amber-50 dark:bg-slate-700 px-4 py-3 rounded-xl border border-amber-100 dark:border-slate-600">
+                                  <div>
+                                    <p className="font-bold text-sm text-[#0b1136] dark:text-white">{w.company} <span className="font-normal text-gray-500">— {w.position}</span></p>
+                                    {w.country && <p className="text-xs text-gray-500 dark:text-gray-400">{w.country}</p>}
+                                  </div>
+                                  <button onClick={() => removeWork(i)} className="text-red-400 hover:text-red-600 ml-4"><i className="fas fa-trash-alt"></i></button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="bg-gray-50 dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-4">
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Company Name:</label>
+                                <input type="text" name="company" className="form-input" placeholder="Company Name" value={currentWork.company} onChange={handleWorkChange}/>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Position:</label>
+                                <input type="text" name="position" className="form-input" placeholder="Position / Job Title" value={currentWork.position} onChange={handleWorkChange}/>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Job Description:</label>
+                              <textarea name="description" rows={3} className="form-input resize-none" placeholder="Brief description of responsibilities..." value={currentWork.description} onChange={handleWorkChange}/>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Country:</label>
+                                <input type="text" name="country" className="form-input" value={currentWork.country} onChange={handleWorkChange}/>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date From:</label>
+                                <input type="text" name="dateFrom" className="form-input" placeholder="MM/DD/YYYY" value={currentWork.dateFrom} onChange={handleWorkChange}/>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date To:</label>
+                                <input type="text" name="dateTo" className="form-input" placeholder="MM/DD/YYYY" value={currentWork.dateTo} onChange={handleWorkChange}/>
+                              </div>
+                              <div>
+                                <button onClick={addWork} className="w-full bg-[#b45309] hover:bg-amber-700 text-white py-2.5 px-4 rounded-xl font-bold text-sm transition shadow-md">
+                                  <i className="fas fa-plus mr-2"></i>Add work history
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* --- How did you find us & Terms --- */}
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">How did you find us?</label>
+                            <select id="referral" className="form-input" value={formData.referral} onChange={handleInputChange}>
+                              <option>Social Media</option><option>Friend/Relative</option><option>Google Search</option><option>Event</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-100 dark:border-slate-700">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="terms" className="w-5 h-5 text-[#0b1136] rounded border-gray-300 focus:ring-[#0b1136]" checked={formData.terms} onChange={handleInputChange}/>
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">I agree to the <Link to="/terms" target="_blank" className="text-[#0b1136] dark:text-blue-400 hover:underline">Terms & Conditions</Link> and Data Privacy Policy. *</span>
+                          </label>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <button onClick={() => setStep(0)} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
+                          <button onClick={() => handleNextStep(2)} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
                         </div>
                     </div>
                   )}
@@ -368,7 +625,7 @@ export default function Portal() {
                   {/* STEP 2: Country Selection */}
                   {step === 2 && (
                     <div className="animate-[fadeIn_0.4s_ease-in-out]">
-                        <h3 className="text-2xl font-black text-center text-smb-blue dark:text-white mb-2">Select your destination</h3>
+                        <h3 className="text-2xl font-black text-center text-[#0b1136] dark:text-white mb-2">Select your destination</h3>
                         <p className="text-center text-gray-500 dark:text-gray-400 mb-8">Where are you planning to migrate, study, or work?</p>
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -381,8 +638,8 @@ export default function Portal() {
                         </div>
                         
                         <div className="mt-10 flex justify-between items-center pt-6 border-t border-gray-100 dark:border-slate-700">
-                            <button onClick={() => handleNextStep(1)} className="text-sm font-bold text-gray-500 hover:text-smb-blue dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
-                            <button onClick={() => handleNextStep(3)} className="bg-smb-blue hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
+                            <button onClick={() => handleNextStep(1)} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
+                            <button onClick={() => handleNextStep(3)} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
                         </div>
                     </div>
                   )}
@@ -390,8 +647,8 @@ export default function Portal() {
                   {/* STEP 3: Dynamic Country Questions */}
                   {step === 3 && selectedCountryObj && (
                     <div className="animate-[fadeIn_0.4s_ease-in-out]">
-                        <h3 className="text-2xl font-black text-center text-smb-blue dark:text-white mb-2">Great choice, {formData.fname || 'there'}!</h3>
-                        <p className="text-center text-gray-500 dark:text-gray-400 mb-8 text-sm">We'll ask specific questions based on <b className="text-smb-blue dark:text-blue-400">{selectedCountryObj.name}'s</b> immigration criteria.</p>
+                        <h3 className="text-2xl font-black text-center text-[#0b1136] dark:text-white mb-2">Great choice, {formData.fname || 'there'}!</h3>
+                        <p className="text-center text-gray-500 dark:text-gray-400 mb-8 text-sm">We'll ask specific questions based on <b className="text-[#0b1136] dark:text-blue-400">{selectedCountryObj.name}'s</b> immigration criteria.</p>
                         
                         <div className="space-y-6">
                             {getQuestionData().step3.map(q => (
@@ -408,8 +665,8 @@ export default function Portal() {
                         </div>
                         
                         <div className="mt-10 flex justify-between items-center pt-6 border-t border-gray-100 dark:border-slate-700">
-                            <button onClick={() => handleNextStep(2)} className="text-sm font-bold text-gray-500 hover:text-smb-blue dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
-                            <button onClick={() => handleNextStep(4)} className="bg-smb-blue hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
+                            <button onClick={() => handleNextStep(2)} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
+                            <button onClick={() => handleNextStep(4)} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
                         </div>
                     </div>
                   )}
@@ -417,7 +674,7 @@ export default function Portal() {
                   {/* STEP 4: General Questions & Finish */}
                   {step === 4 && (
                     <div className="animate-[fadeIn_0.4s_ease-in-out]">
-                        <h3 className="text-2xl font-black text-center text-smb-blue dark:text-white mb-8">Finalizing your profile</h3>
+                        <h3 className="text-2xl font-black text-center text-[#0b1136] dark:text-white mb-8">Finalizing your profile</h3>
                         
                         <div className="space-y-6">
                             {getQuestionData().step4.map(q => (
@@ -435,9 +692,9 @@ export default function Portal() {
 
                         <div className="bg-blue-50 dark:bg-slate-700/50 p-6 md:p-8 rounded-2xl border border-blue-100 dark:border-slate-600 mt-8">
                             <div className="flex items-start gap-4">
-                                <div className="w-10 h-10 bg-smb-blue rounded-full text-white flex items-center justify-center flex-shrink-0"><i className="fas fa-lock"></i></div>
+                                <div className="w-10 h-10 bg-[#0b1136] rounded-full text-white flex items-center justify-center flex-shrink-0"><i className="fas fa-lock"></i></div>
                                 <div className="w-full">
-                                    <p className="font-black text-smb-blue dark:text-white mb-1">Create Account Password</p>
+                                    <p className="font-black text-[#0b1136] dark:text-white mb-1">Create Account Password</p>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Set a password to securely access your score and track your application later.</p>
                                     <input type="password" id="password" className="form-input max-w-md" placeholder="Enter secure password" value={formData.password} onChange={handleInputChange} />
                                 </div>
@@ -445,8 +702,8 @@ export default function Portal() {
                         </div>
 
                         <div className="mt-10 flex justify-between items-center pt-6 border-t border-gray-100 dark:border-slate-700">
-                            <button onClick={() => handleNextStep(3)} className="text-sm font-bold text-gray-500 hover:text-smb-blue dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
-                            <button onClick={submitAssessment} className="bg-smb-gold hover:bg-amber-700 text-white px-10 py-4 rounded-full font-black tracking-widest uppercase transition shadow-xl">SUBMIT ASSESSMENT</button>
+                            <button onClick={() => handleNextStep(3)} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
+                            <button onClick={submitAssessment} className="bg-[#b45309] hover:bg-amber-700 text-white px-10 py-4 rounded-full font-black tracking-widest uppercase transition shadow-xl">SUBMIT ASSESSMENT</button>
                         </div>
                     </div>
                   )}
@@ -460,7 +717,7 @@ export default function Portal() {
                         <h3 className="text-3xl font-black text-[#0b1136] dark:text-white mb-4">Assessment Complete!</h3>
                         <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-md mx-auto text-lg">Your responses have been analyzed. Your unique applicant profile and Eligibility Score are ready.</p>
                         
-                        <button onClick={() => {setCurrentView('dashboard'); window.scrollTo(0,0);}} className="bg-smb-blue hover:bg-blue-900 text-white px-12 py-4 rounded-full font-black uppercase tracking-widest transition shadow-lg animate-pulse">
+                        <button onClick={() => {setCurrentView('dashboard'); window.scrollTo(0,0);}} className="bg-[#0b1136] hover:bg-blue-900 text-white px-12 py-4 rounded-full font-black uppercase tracking-widest transition shadow-lg animate-pulse">
                             View My Score
                         </button>
                     </div>
@@ -475,7 +732,7 @@ export default function Portal() {
             <div className="p-6 md:p-12">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                   <div>
-                      <h2 className="text-3xl font-black text-smb-blue dark:text-white">My Dashboard</h2>
+                      <h2 className="text-3xl font-black text-[#0b1136] dark:text-white">My Dashboard</h2>
                       <p className="text-gray-500 dark:text-gray-400 font-medium mt-1">Application Overview & Results</p>
                   </div>
                   <button onClick={() => { setCurrentView('login'); setFormData({fname:'', lname:'', email:'', password:''}); setStep(0); }} className="text-sm font-bold border border-red-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:border-red-500/20 px-4 py-2 rounded-lg transition">Secure Logout</button>
@@ -483,8 +740,8 @@ export default function Portal() {
               
               <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
                   {/* User Card */}
-                  <div className="bg-white dark:bg-slate-700 rounded-3xl p-8 shadow-sm border-t-8 border-smb-gold flex flex-col items-center justify-center text-center">
-                      <div className="w-24 h-24 bg-blue-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-3xl font-black text-smb-blue dark:text-blue-400 mb-4">
+                  <div className="bg-white dark:bg-slate-700 rounded-3xl p-8 shadow-sm border-t-8 border-[#b45309] flex flex-col items-center justify-center text-center">
+                      <div className="w-24 h-24 bg-blue-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-3xl font-black text-[#0b1136] dark:text-blue-400 mb-4">
                           {(formData.fname.charAt(0) + formData.lname.charAt(0)).toUpperCase() || "JD"}
                       </div>
                       <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
@@ -499,14 +756,14 @@ export default function Portal() {
                   </div>
 
                   {/* Score Card */}
-                  <div className="lg:col-span-2 bg-smb-blue rounded-3xl p-8 md:p-10 shadow-xl text-white relative overflow-hidden">
+                  <div className="lg:col-span-2 bg-[#0b1136] rounded-3xl p-8 md:p-10 shadow-xl text-white relative overflow-hidden">
                       <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 pointer-events-none"></div>
-                      <div className="absolute left-0 bottom-0 w-48 h-48 bg-smb-gold/10 rounded-full -ml-20 -mb-20 pointer-events-none"></div>
+                      <div className="absolute left-0 bottom-0 w-48 h-48 bg-[#b45309]/10 rounded-full -ml-20 -mb-20 pointer-events-none"></div>
                       
                       <h3 className="text-xs md:text-sm font-bold text-blue-300 uppercase tracking-widest mb-6 relative z-10">System Assessment Result</h3>
                       
                       <div className="flex items-end gap-4 md:gap-6 mb-8 relative z-10">
-                          <div className="text-7xl md:text-8xl font-black text-smb-gold leading-none">{displayedScore}</div>
+                          <div className="text-7xl md:text-8xl font-black text-[#b45309] leading-none">{displayedScore}</div>
                           <div className="pb-2 text-lg md:text-xl font-medium text-blue-200 uppercase tracking-wider">/ 100 Points</div>
                       </div>
 
@@ -544,8 +801,8 @@ export default function Portal() {
             <div className="p-6 md:p-12 relative">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                   <div>
-                      <button onClick={() => setCurrentView('dashboard')} className="text-smb-blue dark:text-blue-400 font-bold mb-2 hover:underline flex items-center gap-1"><i className="fas fa-arrow-left"></i> Back to Dashboard</button>
-                      <h2 className="text-3xl font-black text-smb-blue dark:text-white">Schedule Consultation</h2>
+                      <button onClick={() => setCurrentView('dashboard')} className="text-[#0b1136] dark:text-blue-400 font-bold mb-2 hover:underline flex items-center gap-1"><i className="fas fa-arrow-left"></i> Back to Dashboard</button>
+                      <h2 className="text-3xl font-black text-[#0b1136] dark:text-white">Schedule Consultation</h2>
                       <p className="text-gray-500 dark:text-gray-400 font-medium mt-1">Select an available date and time for your legal review.</p>
                   </div>
               </div>
@@ -560,13 +817,13 @@ export default function Portal() {
                                   let newM = currentMonth - 1; let newY = currentYear;
                                   if (newM < 0) { newM = 11; newY--; }
                                   setCurrentMonth(newM); setCurrentYear(newY);
-                              }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-smb-blue hover:text-white transition"><i className="fas fa-chevron-left"></i></button>
+                              }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-[#0b1136] hover:text-white transition"><i className="fas fa-chevron-left"></i></button>
                               <h3 className="text-lg font-bold text-gray-900 dark:text-white">{months[currentMonth]} {currentYear}</h3>
                               <button onClick={() => {
                                   let newM = currentMonth + 1; let newY = currentYear;
                                   if (newM > 11) { newM = 0; newY++; }
                                   setCurrentMonth(newM); setCurrentYear(newY);
-                              }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-smb-blue hover:text-white transition"><i className="fas fa-chevron-right"></i></button>
+                              }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-[#0b1136] hover:text-white transition"><i className="fas fa-chevron-right"></i></button>
                           </div>
                           <div className="grid grid-cols-7 gap-1 text-center mb-2">
                               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-xs font-bold text-gray-400">{d}</div>)}
@@ -581,8 +838,8 @@ export default function Portal() {
                                           disabled={d.isDisabled}
                                           onClick={() => handleDateSelect(d)}
                                           className={`w-8 h-8 md:w-10 md:h-10 mx-auto rounded-full flex items-center justify-center text-sm font-medium transition
-                                            ${d.isDisabled ? "text-gray-300 dark:text-gray-600 cursor-not-allowed" : "text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-slate-600 cursor-pointer"}
-                                            ${isSelected ? "bg-smb-blue text-white dark:bg-blue-500 dark:text-white shadow-md" : ""}
+                                            ${d.isDisabled ? "text-gray-400 dark:text-gray-600 cursor-not-allowed" : "text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-slate-600 cursor-pointer"}
+                                            ${isSelected ? "bg-[#0b1136] text-white dark:bg-blue-500 dark:text-white shadow-md" : ""}
                                           `}
                                       >
                                           {d.day}
@@ -604,7 +861,7 @@ export default function Portal() {
                                           key={time}
                                           onClick={() => setSelectedTime(time)}
                                           className={`py-2 px-4 rounded-lg border text-sm font-bold transition
-                                            ${selectedTime === time ? "bg-smb-blue text-white border-smb-blue dark:bg-blue-500 dark:border-blue-500" : "border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:border-smb-blue dark:hover:border-blue-400"}
+                                            ${selectedTime === time ? "bg-[#0b1136] text-white border-[#0b1136] dark:bg-blue-500 dark:border-blue-500" : "border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:border-[#0b1136] dark:hover:border-blue-400"}
                                           `}
                                       >
                                           {time}
@@ -616,7 +873,7 @@ export default function Portal() {
                           <div className="mt-auto">
                               <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-600 mb-6">
                                   <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold mb-1">Selected Schedule</p>
-                                  <p className="font-bold text-smb-blue dark:text-blue-400">
+                                  <p className="font-bold text-[#0b1136] dark:text-blue-400">
                                       {selectedDate && selectedTime ? `${months[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()} at ${selectedTime}` : "None selected"}
                                   </p>
                               </div>
@@ -642,12 +899,12 @@ export default function Portal() {
                         <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Booking Confirmed!</h3>
                         <p className="text-gray-600 dark:text-gray-300 mb-6">Your formal consultation has been scheduled for:</p>
                         <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-xl border border-blue-100 dark:border-slate-600 mb-8 inline-block w-full">
-                            <p className="font-bold text-smb-blue dark:text-blue-400 text-lg">
+                            <p className="font-bold text-[#0b1136] dark:text-blue-400 text-lg">
                                 {months[selectedDate.getMonth()]} {selectedDate.getDate()}, {selectedDate.getFullYear()} @ {selectedTime}
                             </p>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">We have sent a calendar invitation and a secure meeting link to your email address.</p>
-                        <button onClick={() => { setShowSuccessModal(false); setCurrentView('dashboard'); }} className="w-full bg-smb-blue hover:bg-blue-900 text-white py-3 rounded-xl font-bold transition shadow-md">
+                        <button onClick={() => { setShowSuccessModal(false); setCurrentView('dashboard'); }} className="w-full bg-[#0b1136] hover:bg-blue-900 text-white py-3 rounded-xl font-bold transition shadow-md">
                             Return to Dashboard
                         </button>
                     </div>
