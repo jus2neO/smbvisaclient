@@ -22,7 +22,7 @@ const destinations = [
 
 export default function Home() {
   const location = useLocation();
-  
+
   // Handling hash links
   useEffect(() => {
     if (location.hash) {
@@ -45,10 +45,12 @@ export default function Home() {
           <h1 className="text-5xl md:text-6xl font-bold mb-6">Fulfilling Lives</h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-200">Your trusted partner in global migration, education, and career opportunities.</p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
-            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Study Visa</span>
-            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Work Visa</span>
+            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Student Visa</span>
+            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Scholarship</span>
+            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Delegation</span>
+            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Intership</span>
             <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Marriage Visa</span>
-            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Permanent Residency</span>
+            <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Immigration</span>
           </div>
           <Link to="/portal?mode=register" className="bg-[#b45309] hover:bg-amber-700 text-white px-8 py-4 rounded-full font-bold text-lg transition shadow-xl inline-block mt-4">
             Take Eligibility Assessment
@@ -75,7 +77,7 @@ export default function Home() {
             </div>
             <div className="order-1 md:order-2 flex justify-center">
               <div className="ceo-image-container">
-                <img src="https://i.postimg.cc/s2gv4H0r/IMG-20250114-WA0014.jpg" alt="Shiela Mae Bullar" className="ceo-img shadow-2xl" onError={(e) => {e.target.src='image_f06d62.jpg'}} />
+                <img src="https://i.postimg.cc/s2gv4H0r/IMG-20250114-WA0014.jpg" alt="Shiela Mae Bullar" className="ceo-img shadow-2xl" onError={(e) => { e.target.src = 'image_f06d62.jpg' }} />
               </div>
             </div>
           </div>
@@ -153,7 +155,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {destinations.map((dest, i) => (
               <div key={i} className="destination-card relative overflow-hidden rounded-xl h-72 group cursor-pointer shadow-lg border border-transparent dark:border-slate-700">
-                <img src={dest.img} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={dest.name}/>
+                <img src={dest.img} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={dest.name} />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="country-label text-white text-2xl font-bold tracking-widest uppercase drop-shadow-md">{dest.name}</span>
                 </div>
@@ -208,7 +210,7 @@ export default function Home() {
               </div>
               <div className="space-y-6 flex-grow">
                 <div className="flex items-start gap-4"><i className="fas fa-map-marker-alt text-smb-gold dark:text-amber-500 mt-1.5"></i><div><p className="text-lg leading-tight mb-1">Ortigas Center, Pasig Metro Manila</p><p className="text-lg leading-tight">Bacolod City</p></div></div>
-                <div className="flex items-start gap-4"><i className="fas fa-phone-alt text-smb-gold dark:text-amber-500 mt-1.5"></i><div className="text-2xl font-bold tracking-tight"><p>+63 938 931 4030</p><p>+63 992 969 9308</p></div></div>
+                <div className="flex items-start gap-4"><i className="fas fa-phone-alt text-smb-gold dark:text-amber-500 mt-1.5"></i><div className="text-2xl font-bold tracking-tight"><p>+63 900 900 4000</p><p>+63 992 969 9308</p></div></div>
                 <div className="pt-6 border-t border-white/10">
                   <h4 className="text-sm font-bold text-blue-300 uppercase tracking-widest mb-4">Regional Reach</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-y-2 text-sm font-medium text-blue-100">
