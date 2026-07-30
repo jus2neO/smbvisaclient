@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../lib/supabaseClient';
+import imageCompression from 'browser-image-compression';
+
+const MAX_RESUME_MB = 5;
 
 // Data Models
 const countriesList = [
@@ -72,10 +76,11 @@ export default function Portal() {
   
   // Assessment State
   const [step, setStep] = useState(0);
+  const [subStep, setSubStep] = useState(0); // Sub-sections within Step 1: 0=Personal Info, 1=Education, 2=Work History
   const [formData, setFormData] = useState({
       fname: '', lname: '', middleName: '', positionApplied: '',
       email: '', phone: '', landline: '', facebook: '',
-      birthMonth: '', birthDay: '', birthYear: '',
+      birthDate: '',
       gender: 'Male', heightCm: '', weightKg: '',
       province: '', cityMunicipality: '', completeAddress: '',
       referral: 'Social Media', terms: false, password: ''
@@ -92,6 +97,15 @@ export default function Portal() {
   const [selectedCountryObj, setSelectedCountryObj] = useState(null);
   const [answers, setAnswers] = useState({});
   const [scoreData, setScoreData] = useState({ score: 0, trackingId: '' });
+  const [existingAppointment, setExistingAppointment] = useState(null); // { date, time, type } | null
+  const [dailyLimit, setDailyLimit] = useState(null);
+  const [bookedCounts, setBookedCounts] = useState({}); // { 'YYYY-MM-DD': count }
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resumeFile, setResumeFile] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   
   // Dashboard & Booking State
   const [displayedScore, setDisplayedScore] = useState(0);
@@ -99,7 +113,9 @@ export default function Portal() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
+  const [appointmentType, setAppointmentType] = useState('Online');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
   // Initialize view based on URL param
   useEffect(() => {
@@ -126,6 +142,21 @@ export default function Portal() {
     }
   }, [currentView, scoreData.score]);
 
+  // Load booking capacity when the client opens the scheduling calendar
+  useEffect(() => {
+    if (currentView !== 'booking') return;
+    (async () => {
+        const [{ data: settings }, { data: counts }] = await Promise.all([
+            supabase.from('appointment_settings').select('daily_limit').eq('id', true).single(),
+            supabase.rpc('get_appointment_counts'),
+        ]);
+        setDailyLimit(settings?.daily_limit ?? null);
+        const countsMap = {};
+        (counts || []).forEach(row => { countsMap[row.appointment_date] = row.appointment_count; });
+        setBookedCounts(countsMap);
+    })();
+  }, [currentView]);
+
   const handleInputChange = (e) => {
     const { id, value, type, checked } = e.target;
     setFormData(prev => ({ ...prev, [id]: type === 'checkbox' ? checked : value }));
@@ -139,13 +170,60 @@ export default function Portal() {
     }
   };
 
-  const handleAnswerSelect = (qId, value) => {
-    setAnswers(prev => ({ ...prev, [qId]: parseInt(value) }));
+  const handleAnswerSelect = (qId, optIndex, opt, questionText) => {
+    setAnswers(prev => ({ ...prev, [qId]: { index: optIndex, value: opt.v, label: opt.l, question: questionText } }));
   };
 
-  const validateStep1 = () => {
-    if (!formData.fname || !formData.lname || !formData.positionApplied || !formData.terms || emailError || !formData.email || !formData.phone) {
-        alert('Please fill all required fields (*) correctly and agree to the Terms & Conditions.');
+  const validatePersonalInfo = () => {
+    if (!formData.positionApplied || !formData.fname || !formData.lname || !formData.email || emailError || !formData.phone) {
+        alert('Please fill all required fields (*) correctly before continuing.');
+        return false;
+    }
+    if (!resumeFile) {
+        alert('Please upload your Resume/Biodata to continue.');
+        return false;
+    }
+    if (!photoFile) {
+        alert('Please upload your latest photo to continue.');
+        return false;
+    }
+    return true;
+  };
+
+  const handleResumeChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > MAX_RESUME_MB * 1024 * 1024) {
+        alert(`That file is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please compress it and try again — max ${MAX_RESUME_MB}MB.`);
+        e.target.value = '';
+        return;
+    }
+    setResumeFile(file);
+  };
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsCompressingPhoto(true);
+    try {
+        const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+        });
+        setPhotoFile(compressed);
+    } catch (err) {
+        console.error(err);
+        alert('Could not process that photo. Please try a different file.');
+        e.target.value = '';
+    } finally {
+        setIsCompressingPhoto(false);
+    }
+  };
+
+  const validateTerms = () => {
+    if (!formData.terms) {
+        alert('Please agree to the Terms & Conditions and Data Privacy Policy to continue.');
         return false;
     }
     return true;
@@ -178,17 +256,17 @@ export default function Portal() {
   const removeWork = (idx) => setWorkHistoryList(prev => prev.filter((_, i) => i !== idx));
 
   const handleNextStep = (targetStep) => {
-    if (targetStep === 2 && !validateStep1()) return;
     if (targetStep === 3 && !selectedCountryObj) { alert("Please select a target destination."); return; }
-    
+
+    if (targetStep === 1) setSubStep(2); // returning to Step 1 lands on its last section
     setStep(targetStep);
     window.scrollTo(0,0);
   };
 
-  const submitAssessment = () => {
+  const submitAssessment = async () => {
     const qData = getQuestionData();
     const requiredAnswers = qData.step3.length + qData.step4.length;
-    
+
     if (Object.keys(answers).length < requiredAnswers) {
         alert("Please select an answer for all assessment questions before submitting.");
         return;
@@ -198,38 +276,146 @@ export default function Portal() {
         return;
     }
 
-    let total = Object.values(answers).reduce((sum, val) => sum + val, 0);
+    let total = Object.values(answers).reduce((sum, a) => sum + a.value, 0);
     total += 20; // Baseline bump
     if (total > 100) total = 100;
 
+    const answersPayload = Object.entries(answers).map(([qId, a]) => ({
+        id: qId, question: a.question, answer: a.label, points: a.value,
+    }));
+
     const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setScoreData({ score: total, trackingId: `SMB-${randomCode}` });
-    
-    setStep(5);
-    window.scrollTo(0,0);
+    const trackingId = `SMB-${randomCode}`;
+    const birthDate = formData.birthDate || null;
+
+    setIsSubmitting(true);
+    try {
+        const { data: passwordHash, error: hashError } = await supabase.rpc('hash_password', { p_password: formData.password });
+        if (hashError) throw hashError;
+
+        const assessmentId = crypto.randomUUID();
+
+        const resumeExt = resumeFile.name.split('.').pop();
+        const resumePath = `${assessmentId}/resume.${resumeExt}`;
+        const { error: resumeUploadError } = await supabase.storage
+            .from('applicant-files')
+            .upload(resumePath, resumeFile, { contentType: resumeFile.type });
+        if (resumeUploadError) throw resumeUploadError;
+
+        const photoExt = photoFile.name.split('.').pop() || 'jpg';
+        const photoPath = `${assessmentId}/photo.${photoExt}`;
+        const { error: photoUploadError } = await supabase.storage
+            .from('applicant-files')
+            .upload(photoPath, photoFile, { contentType: photoFile.type });
+        if (photoUploadError) throw photoUploadError;
+
+        const { error: insertError } = await supabase
+            .from('assessments')
+            .insert({
+                id: assessmentId,
+                tracking_id: trackingId,
+                password_hash: passwordHash,
+                resume_path: resumePath,
+                photo_path: photoPath,
+                first_name: formData.fname,
+                last_name: formData.lname,
+                middle_name: formData.middleName || null,
+                position_applied: formData.positionApplied,
+                email: formData.email,
+                phone: formData.phone,
+                landline: formData.landline || null,
+                facebook: formData.facebook || null,
+                birth_date: birthDate,
+                gender: formData.gender,
+                height_cm: formData.heightCm || null,
+                weight_kg: formData.weightKg || null,
+                province: formData.province || null,
+                city_municipality: formData.cityMunicipality || null,
+                complete_address: formData.completeAddress || null,
+                referral: formData.referral,
+                destination_country: selectedCountryObj?.name,
+                destination_flag: selectedCountryObj?.flag,
+                score: total,
+                answers: answersPayload,
+            });
+        if (insertError) throw insertError;
+
+        if (educationList.length > 0) {
+            const eduRows = educationList.map(edu => ({
+                assessment_id: assessmentId,
+                level: edu.level || null,
+                school: edu.school || null,
+                course: edu.course || null,
+                date_from: edu.dateFrom || null,
+                date_to: edu.dateTo || null,
+            }));
+            const { error: eduError } = await supabase.from('education').insert(eduRows);
+            if (eduError) throw eduError;
+        }
+
+        if (workHistoryList.length > 0) {
+            const workRows = workHistoryList.map(w => ({
+                assessment_id: assessmentId,
+                company: w.company || null,
+                position: w.position || null,
+                description: w.description || null,
+                country: w.country || null,
+                date_from: w.dateFrom || null,
+                date_to: w.dateTo || null,
+            }));
+            const { error: workError } = await supabase.from('work_history').insert(workRows);
+            if (workError) throw workError;
+        }
+
+        setScoreData({ score: total, trackingId });
+        setStep(5);
+        window.scrollTo(0,0);
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong submitting your assessment. Please try again.");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const btn = e.target.querySelector('button');
+    const form = e.target;
+    const trackingIdValue = form.querySelector('input[type="text"]').value.trim().toUpperCase();
+    const passwordValue = form.querySelector('input[type="password"]').value;
+    const btn = form.querySelector('button');
     const originalText = btn.innerHTML;
+    btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
-    
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-        alert("This connects to the database. For demo, we will log you in to a mock profile.");
-        
-        const inputValue = e.target.querySelector('input').value;
-        const generatedId = `SMB-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        const finalId = (inputValue && inputValue.toUpperCase().startsWith('SMB-')) ? inputValue.toUpperCase() : generatedId;
 
-        setSelectedCountryObj({ name: "United Kingdom", flag: "🇬🇧" });
-        setScoreData({ score: 85, trackingId: finalId });
-        setFormData(prev => ({ ...prev, fname: "Jane", lname: "Doe" }));
-        
+    try {
+        const { data, error } = await supabase.rpc('verify_client_login', {
+            p_tracking_id: trackingIdValue,
+            p_password: passwordValue,
+        });
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            alert("Invalid Tracking ID or Password.");
+            return;
+        }
+
+        const profile = data[0];
+        setSelectedCountryObj({ name: profile.destination_country, flag: profile.destination_flag });
+        setScoreData({ score: profile.score, trackingId: profile.tracking_id });
+        setFormData(prev => ({ ...prev, fname: profile.first_name, lname: profile.last_name, password: passwordValue }));
+        setExistingAppointment(profile.appointment_date
+            ? { date: profile.appointment_date, time: profile.appointment_time, type: profile.appointment_type }
+            : null);
+
         setCurrentView('dashboard');
         window.scrollTo(0,0);
-    }, 800);
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong logging in. Please try again.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
   };
 
   const getQuestionData = () => {
@@ -255,7 +441,9 @@ export default function Portal() {
           const date = new Date(currentYear, currentMonth, i);
           const isPast = date < today;
           const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-          days.push({ day: i, date, isDisabled: isPast || isWeekend });
+          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          const isFull = dailyLimit != null && (bookedCounts[dateStr] || 0) >= dailyLimit;
+          days.push({ day: i, date, isDisabled: isPast || isWeekend || isFull, isFull });
       }
       return days;
   };
@@ -265,8 +453,36 @@ export default function Portal() {
     setSelectedTime(null);
   };
 
-  const confirmBooking = () => {
-    setShowSuccessModal(true);
+  const confirmBooking = async () => {
+    if (!selectedDate || !selectedTime) return;
+
+    setIsBooking(true);
+    try {
+        const y = selectedDate.getFullYear();
+        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const d = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+
+        const { data: booked, error } = await supabase.rpc('book_consultation', {
+            p_tracking_id: scoreData.trackingId,
+            p_password: formData.password,
+            p_date: dateStr,
+            p_time: selectedTime,
+            p_type: appointmentType,
+        });
+        if (error) throw error;
+        if (!booked) {
+            alert("That date just filled up, or you already have a consultation scheduled. Please pick another date or refresh.");
+            return;
+        }
+        setExistingAppointment({ date: dateStr, time: selectedTime, type: appointmentType });
+        setShowSuccessModal(true);
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong booking your consultation. Please try again.");
+    } finally {
+        setIsBooking(false);
+    }
   };
 
   // Shared generic classes
@@ -300,7 +516,12 @@ export default function Portal() {
                   </div>
                   <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Password</label>
-                      <input type="password" required className="form-input" placeholder="••••••••" />
+                      <div className="relative">
+                        <input type={showLoginPassword ? 'text' : 'password'} required className="form-input pr-11" placeholder="••••••••" />
+                        <button type="button" onClick={() => setShowLoginPassword(v => !v)} className="absolute inset-y-0 right-0 px-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                          <i className={`fas ${showLoginPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
+                        </button>
+                      </div>
                   </div>
                   <button type="submit" className="w-full bg-[#0b1136] hover:bg-blue-900 text-white py-3.5 rounded-xl font-bold transition shadow-lg mt-4">
                       Secure Login
@@ -354,7 +575,7 @@ export default function Portal() {
                         <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed text-lg">
                             This comprehensive questionnaire will analyze your current situation and capabilities to calculate your personalized <b>Points-Based Visa Eligibility Score</b>.
                         </p>
-                        <button onClick={() => setStep(1)} className="bg-[#0b1136] hover:bg-blue-900 text-white px-12 py-4 rounded-full font-black tracking-widest uppercase transition shadow-lg shadow-blue-900/20">
+                        <button onClick={() => { setStep(1); setSubStep(0); }} className="bg-[#0b1136] hover:bg-blue-900 text-white px-12 py-4 rounded-full font-black tracking-widest uppercase transition shadow-lg shadow-blue-900/20">
                             Start Assessment
                         </button>
                         <div className="mt-10 pt-8 border-t border-gray-100 dark:border-slate-700">
@@ -369,8 +590,29 @@ export default function Portal() {
                   {/* STEP 1: Personal Info */}
                   {step === 1 && (
                     <div className="animate-[fadeIn_0.4s_ease-in-out] space-y-10">
-                        <h3 className="text-2xl font-black text-center text-[#0b1136] dark:text-white">Tell us about yourself</h3>
+                        <div className="text-center">
+                          <h3 className="text-2xl font-black text-[#0b1136] dark:text-white">Tell us about yourself</h3>
+                          <div className="flex items-center justify-center gap-2 mt-5 flex-wrap">
+                              {['Personal Info', 'Education', 'Work History'].map((label, i) => (
+                                <div key={label} className="flex items-center gap-2">
+                                  <span className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition ${
+                                    subStep === i
+                                      ? 'bg-[#0b1136] text-white dark:bg-blue-500'
+                                      : subStep > i
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                        : 'bg-gray-100 text-gray-400 dark:bg-slate-700 dark:text-gray-500'
+                                  }`}>
+                                    {subStep > i ? <i className="fas fa-check mr-1"></i> : `${i + 1}. `}{label}
+                                  </span>
+                                  {i < 2 && <div className="w-5 h-px bg-gray-200 dark:bg-slate-600"></div>}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
 
+                        {/* ===== SUB-STEP 0: PERSONAL INFO ===== */}
+                        {subStep === 0 && (
+                        <div className="space-y-10 animate-[fadeIn_0.3s_ease-in-out]">
                         {/* --- Position Applied --- */}
                         <div>
                           <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Position Applied:</label>
@@ -398,14 +640,7 @@ export default function Portal() {
                         <div className="grid md:grid-cols-2 gap-6">
                           <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Birth Date:</label>
-                            <div className="flex gap-2">
-                              <select id="birthMonth" className="form-input" value={formData.birthMonth} onChange={handleInputChange}>
-                                <option value="">Please select</option>
-                                {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m,i) => <option key={m} value={String(i+1).padStart(2,'0')}>{m}</option>)}
-                              </select>
-                              <input type="text" id="birthDay" className="form-input w-20 text-center" placeholder="DD" maxLength={2} value={formData.birthDay} onChange={handleInputChange}/>
-                              <input type="text" id="birthYear" className="form-input w-24 text-center" placeholder="YYYY" maxLength={4} value={formData.birthYear} onChange={handleInputChange}/>
-                            </div>
+                            <input type="date" id="birthDate" className="form-input" max={new Date().toISOString().split('T')[0]} value={formData.birthDate} onChange={handleInputChange}/>
                           </div>
                           <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Gender:</label>
@@ -425,8 +660,8 @@ export default function Portal() {
                           <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Height & Weight:</label>
                             <div className="flex gap-2">
-                              <input type="text" id="heightCm" className="form-input" placeholder="Height (cm)" value={formData.heightCm} onChange={handleInputChange}/>
-                              <input type="text" id="weightKg" className="form-input" placeholder="Weight (kg)" value={formData.weightKg} onChange={handleInputChange}/>
+                              <input type="text" inputMode="decimal" id="heightCm" className="form-input" placeholder="Height (cm)" value={formData.heightCm} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, ''); handleInputChange(e); }}/>
+                              <input type="text" inputMode="decimal" id="weightKg" className="form-input" placeholder="Weight (kg)" value={formData.weightKg} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, ''); handleInputChange(e); }}/>
                             </div>
                           </div>
                           <div>
@@ -474,28 +709,38 @@ export default function Portal() {
                         {/* --- File Uploads --- */}
                         <div className="grid md:grid-cols-2 gap-6">
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Upload your Resume/Biodata:</label>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">*Upload your Resume/Biodata:</label>
                             <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 hover:border-[#0b1136] dark:hover:border-blue-400 transition">
                               <i className="fas fa-file-upload text-[#0b1136] dark:text-blue-400 text-lg"></i>
-                              <span className="text-sm text-gray-500 dark:text-gray-400">Choose File</span>
-                              <input type="file" accept=".pdf,.doc,.docx" className="hidden"/>
+                              <span className="text-sm text-gray-500 dark:text-gray-400 truncate">{resumeFile ? resumeFile.name : 'Choose File'}</span>
+                              <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleResumeChange}/>
                             </label>
-                            <p className="text-xs text-gray-400 mt-1">(Allowed File Type: PDF and MS Word only)</p>
+                            <p className="text-xs text-gray-400 mt-1">(Allowed File Type: PDF and MS Word only, max {MAX_RESUME_MB}MB)</p>
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Upload latest Photo:</label>
-                            <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 hover:border-[#b45309] dark:hover:border-amber-500 transition">
-                              <i className="fas fa-image text-[#b45309] dark:text-amber-500 text-lg"></i>
-                              <span className="text-sm text-gray-500 dark:text-gray-400">Choose File</span>
-                              <input type="file" accept="image/*" className="hidden"/>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">*Upload latest Photo:</label>
+                            <label className={`flex items-center gap-3 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 hover:border-[#b45309] dark:hover:border-amber-500 transition ${isCompressingPhoto ? 'cursor-wait opacity-70' : 'cursor-pointer'}`}>
+                              <i className={`fas ${isCompressingPhoto ? 'fa-spinner fa-spin' : 'fa-image'} text-[#b45309] dark:text-amber-500 text-lg`}></i>
+                              <span className="text-sm text-gray-500 dark:text-gray-400 truncate">{isCompressingPhoto ? 'Compressing...' : photoFile ? photoFile.name : 'Choose File'}</span>
+                              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isCompressingPhoto}/>
                             </label>
-                            <p className="text-xs text-gray-400 mt-1">(taken recently within 3 months)</p>
+                            <p className="text-xs text-gray-400 mt-1">(taken recently within 3 months — auto-compressed on upload)</p>
                           </div>
                         </div>
 
+                        <div className="flex justify-end items-center pt-4 border-t border-gray-100 dark:border-slate-700">
+                          <button onClick={() => { if (validatePersonalInfo()) { setSubStep(1); window.scrollTo(0,0); } }} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT: EDUCATION <i className="fas fa-arrow-right ml-2"></i></button>
+                        </div>
+                        </div>
+                        )}
+
+                        {/* ===== SUB-STEP 1: EDUCATION ===== */}
+                        {subStep === 1 && (
+                        <div className="space-y-6 animate-[fadeIn_0.3s_ease-in-out]">
                         {/* --- Education --- */}
                         <div>
                           <h4 className="text-lg font-black text-[#0b1136] dark:text-white mb-4 flex items-center gap-2"><i className="fas fa-graduation-cap text-[#b45309]"></i> Education</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 -mt-3 mb-4">Optional — add any schools or training relevant to your application.</p>
                           {educationList.length > 0 && (
                             <div className="space-y-2 mb-4">
                               {educationList.map((edu, i) => (
@@ -530,11 +775,11 @@ export default function Portal() {
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-end">
                               <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date From:</label>
-                                <input type="text" name="dateFrom" className="form-input" placeholder="MM/DD/YYYY" value={currentEdu.dateFrom} onChange={handleEduChange}/>
+                                <input type="date" name="dateFrom" className="form-input" value={currentEdu.dateFrom} onChange={handleEduChange}/>
                               </div>
                               <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date To:</label>
-                                <input type="text" name="dateTo" className="form-input" placeholder="MM/DD/YYYY" value={currentEdu.dateTo} onChange={handleEduChange}/>
+                                <input type="date" name="dateTo" className="form-input" value={currentEdu.dateTo} onChange={handleEduChange}/>
                               </div>
                               <div>
                                 <button onClick={addEducation} className="w-full bg-[#0b1136] hover:bg-blue-900 text-white py-2.5 px-4 rounded-xl font-bold text-sm transition shadow-md">
@@ -545,9 +790,20 @@ export default function Portal() {
                           </div>
                         </div>
 
+                        <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-700">
+                          <button onClick={() => { setSubStep(0); window.scrollTo(0,0); }} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
+                          <button onClick={() => { setSubStep(2); window.scrollTo(0,0); }} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT: WORK HISTORY <i className="fas fa-arrow-right ml-2"></i></button>
+                        </div>
+                        </div>
+                        )}
+
+                        {/* ===== SUB-STEP 2: WORK HISTORY ===== */}
+                        {subStep === 2 && (
+                        <div className="space-y-6 animate-[fadeIn_0.3s_ease-in-out]">
                         {/* --- Work History --- */}
                         <div>
                           <h4 className="text-lg font-black text-[#0b1136] dark:text-white mb-4 flex items-center gap-2"><i className="fas fa-briefcase text-[#b45309]"></i> Work History</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 -mt-3 mb-4">Optional — add relevant employment history.</p>
                           {workHistoryList.length > 0 && (
                             <div className="space-y-2 mb-4">
                               {workHistoryList.map((w, i) => (
@@ -583,11 +839,11 @@ export default function Portal() {
                               </div>
                               <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date From:</label>
-                                <input type="text" name="dateFrom" className="form-input" placeholder="MM/DD/YYYY" value={currentWork.dateFrom} onChange={handleWorkChange}/>
+                                <input type="date" name="dateFrom" className="form-input" value={currentWork.dateFrom} onChange={handleWorkChange}/>
                               </div>
                               <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Date To:</label>
-                                <input type="text" name="dateTo" className="form-input" placeholder="MM/DD/YYYY" value={currentWork.dateTo} onChange={handleWorkChange}/>
+                                <input type="date" name="dateTo" className="form-input" value={currentWork.dateTo} onChange={handleWorkChange}/>
                               </div>
                               <div>
                                 <button onClick={addWork} className="w-full bg-[#b45309] hover:bg-amber-700 text-white py-2.5 px-4 rounded-xl font-bold text-sm transition shadow-md">
@@ -616,9 +872,11 @@ export default function Portal() {
                         </div>
 
                         <div className="flex justify-between items-center">
-                          <button onClick={() => setStep(0)} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
-                          <button onClick={() => handleNextStep(2)} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
+                          <button onClick={() => { setSubStep(1); window.scrollTo(0,0); }} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
+                          <button onClick={() => { if (validateTerms()) handleNextStep(2); }} className="bg-[#0b1136] hover:bg-blue-900 text-white px-8 py-3 rounded-full font-bold transition shadow-md">NEXT STEP <i className="fas fa-arrow-right ml-2"></i></button>
                         </div>
+                        </div>
+                        )}
                     </div>
                   )}
 
@@ -656,7 +914,7 @@ export default function Portal() {
                                     <p className={textClass}>{q.text}</p>
                                     {q.opts.map((opt, i) => (
                                         <label key={i} className="block">
-                                            <input type="radio" name={q.id} value={opt.v} className="hidden" checked={answers[q.id] === opt.v} onChange={(e) => handleAnswerSelect(q.id, e.target.value)} />
+                                            <input type="radio" name={q.id} value={opt.v} className="hidden" checked={answers[q.id]?.index === i} onChange={() => handleAnswerSelect(q.id, i, opt, q.text)} />
                                             <span className="radio-card">{opt.l}</span>
                                         </label>
                                     ))}
@@ -682,7 +940,7 @@ export default function Portal() {
                                     <p className={textClass}>{q.text}</p>
                                     {q.opts.map((opt, i) => (
                                         <label key={i} className="block">
-                                            <input type="radio" name={q.id} value={opt.v} className="hidden" checked={answers[q.id] === opt.v} onChange={(e) => handleAnswerSelect(q.id, e.target.value)} />
+                                            <input type="radio" name={q.id} value={opt.v} className="hidden" checked={answers[q.id]?.index === i} onChange={() => handleAnswerSelect(q.id, i, opt, q.text)} />
                                             <span className="radio-card">{opt.l}</span>
                                         </label>
                                     ))}
@@ -696,14 +954,21 @@ export default function Portal() {
                                 <div className="w-full">
                                     <p className="font-black text-[#0b1136] dark:text-white mb-1">Create Account Password</p>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Set a password to securely access your score and track your application later.</p>
-                                    <input type="password" id="password" className="form-input max-w-md" placeholder="Enter secure password" value={formData.password} onChange={handleInputChange} />
+                                    <div className="relative max-w-md">
+                                      <input type={showPassword ? 'text' : 'password'} id="password" className="form-input pr-11" placeholder="Enter secure password" value={formData.password} onChange={handleInputChange} />
+                                      <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 px-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                        <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
+                                      </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="mt-10 flex justify-between items-center pt-6 border-t border-gray-100 dark:border-slate-700">
                             <button onClick={() => handleNextStep(3)} className="text-sm font-bold text-gray-500 hover:text-[#0b1136] dark:hover:text-blue-400 px-6 py-2 transition"><i className="fas fa-arrow-left mr-2"></i> BACK</button>
-                            <button onClick={submitAssessment} className="bg-[#b45309] hover:bg-amber-700 text-white px-10 py-4 rounded-full font-black tracking-widest uppercase transition shadow-xl">SUBMIT ASSESSMENT</button>
+                            <button onClick={submitAssessment} disabled={isSubmitting} className="bg-[#b45309] hover:bg-amber-700 text-white px-10 py-4 rounded-full font-black tracking-widest uppercase transition shadow-xl disabled:opacity-60 disabled:cursor-not-allowed">
+                                {isSubmitting ? <><i className="fas fa-spinner fa-spin mr-2"></i>Submitting...</> : 'SUBMIT ASSESSMENT'}
+                            </button>
                         </div>
                     </div>
                   )}
@@ -788,9 +1053,20 @@ export default function Portal() {
                           </p>
                       </div>
                       
-                      <button onClick={() => { setCurrentView('booking'); window.scrollTo(0,0); }} className="mt-8 w-full bg-white hover:bg-gray-100 text-[#0b1136] py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition relative z-10 text-sm md:text-base">
-                          <i className="fas fa-calendar-alt mr-2"></i> Book Formal Consultation
-                      </button>
+                      {existingAppointment ? (
+                          <div className="mt-8 w-full bg-white/10 border border-white/20 rounded-xl py-4 px-5 relative z-10 text-sm md:text-base">
+                              <p className="font-black uppercase tracking-widest flex items-center gap-2 mb-1">
+                                  <i className="fas fa-calendar-check"></i> Consultation Scheduled
+                              </p>
+                              <p className="text-blue-100">
+                                  {existingAppointment.date} at {existingAppointment.time} · {existingAppointment.type === 'Online' ? 'Online Appointment' : existingAppointment.type}
+                              </p>
+                          </div>
+                      ) : (
+                          <button onClick={() => { setCurrentView('booking'); window.scrollTo(0,0); }} className="mt-8 w-full bg-white hover:bg-gray-100 text-[#0b1136] py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition relative z-10 text-sm md:text-base">
+                              <i className="fas fa-calendar-alt mr-2"></i> Book Formal Consultation
+                          </button>
+                      )}
                   </div>
               </div>
             </div>
@@ -833,12 +1109,14 @@ export default function Portal() {
                                   if (!d) return <div key={`empty-${i}`}></div>;
                                   const isSelected = selectedDate && d.date.getTime() === selectedDate.getTime();
                                   return (
-                                      <button 
-                                          key={i} 
+                                      <button
+                                          key={i}
                                           disabled={d.isDisabled}
                                           onClick={() => handleDateSelect(d)}
-                                          className={`w-8 h-8 md:w-10 md:h-10 mx-auto rounded-full flex items-center justify-center text-sm font-medium transition
+                                          title={d.isFull ? 'Fully booked' : undefined}
+                                          className={`w-8 h-8 md:w-10 md:h-10 mx-auto rounded-full flex items-center justify-center text-sm font-medium transition relative
                                             ${d.isDisabled ? "text-gray-400 dark:text-gray-600 cursor-not-allowed" : "text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-slate-600 cursor-pointer"}
+                                            ${d.isFull ? "bg-red-50 dark:bg-red-900/20 line-through" : ""}
                                             ${isSelected ? "bg-[#0b1136] text-white dark:bg-blue-500 dark:text-white shadow-md" : ""}
                                           `}
                                       >
@@ -871,18 +1149,32 @@ export default function Portal() {
                           </div>
                           
                           <div className="mt-auto">
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold mb-2">Consultation Type</p>
+                              <div className="grid grid-cols-2 gap-3 mb-6">
+                                  {[{ value: 'Online', label: 'Online Appointment', icon: 'fa-video' }, { value: 'In-Person', label: 'In-Person', icon: 'fa-handshake' }].map(type => (
+                                      <button
+                                          key={type.value}
+                                          onClick={() => setAppointmentType(type.value)}
+                                          className={`py-2.5 px-4 rounded-lg border text-sm font-bold transition flex items-center justify-center gap-2
+                                            ${appointmentType === type.value ? "bg-[#0b1136] text-white border-[#0b1136] dark:bg-blue-500 dark:border-blue-500" : "border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:border-[#0b1136] dark:hover:border-blue-400"}
+                                          `}
+                                      >
+                                          <i className={`fas ${type.icon}`}></i> {type.label}
+                                      </button>
+                                  ))}
+                              </div>
                               <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-600 mb-6">
                                   <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold mb-1">Selected Schedule</p>
                                   <p className="font-bold text-[#0b1136] dark:text-blue-400">
                                       {selectedDate && selectedTime ? `${months[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()} at ${selectedTime}` : "None selected"}
                                   </p>
                               </div>
-                              <button 
-                                  onClick={confirmBooking} 
-                                  disabled={!selectedDate || !selectedTime}
-                                  className={`w-full bg-[#b45309] hover:bg-amber-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition ${(!selectedDate || !selectedTime) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              <button
+                                  onClick={confirmBooking}
+                                  disabled={!selectedDate || !selectedTime || isBooking}
+                                  className={`w-full bg-[#b45309] hover:bg-amber-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition ${(!selectedDate || !selectedTime || isBooking) ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
-                                  Confirm Appointment
+                                  {isBooking ? <><i className="fas fa-spinner fa-spin mr-2"></i>Booking...</> : 'Confirm Appointment'}
                               </button>
                           </div>
                       </div>
@@ -897,13 +1189,17 @@ export default function Portal() {
                             <i className="fas fa-check text-4xl text-green-500"></i>
                         </div>
                         <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Booking Confirmed!</h3>
-                        <p className="text-gray-600 dark:text-gray-300 mb-6">Your formal consultation has been scheduled for:</p>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">Your formal {appointmentType === 'Online' ? 'online' : 'in-person'} consultation has been scheduled for:</p>
                         <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-xl border border-blue-100 dark:border-slate-600 mb-8 inline-block w-full">
                             <p className="font-bold text-[#0b1136] dark:text-blue-400 text-lg">
                                 {months[selectedDate.getMonth()]} {selectedDate.getDate()}, {selectedDate.getFullYear()} @ {selectedTime}
                             </p>
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">We have sent a calendar invitation and a secure meeting link to your email address.</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+                            {appointmentType === 'Online'
+                              ? 'We have sent a calendar invitation and a secure meeting link to your email address.'
+                              : 'We have sent a calendar invitation with our office address to your email address.'}
+                        </p>
                         <button onClick={() => { setShowSuccessModal(false); setCurrentView('dashboard'); }} className="w-full bg-[#0b1136] hover:bg-blue-900 text-white py-3 rounded-xl font-bold transition shadow-md">
                             Return to Dashboard
                         </button>
