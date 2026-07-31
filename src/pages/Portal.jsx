@@ -116,6 +116,10 @@ export default function Portal() {
   const [appointmentType, setAppointmentType] = useState('Online');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [payingId, setPayingId] = useState(null);
+  const [checkingBookingPayment, setCheckingBookingPayment] = useState(false);
 
   // Initialize view based on URL param
   useEffect(() => {
@@ -156,6 +160,79 @@ export default function Portal() {
         setBookedCounts(countsMap);
     })();
   }, [currentView]);
+
+  // Load payments on the dashboard, and keep them live so a payment made
+  // via PayMongo (or a request the admin just created) shows up without
+  // the client needing to refresh.
+  const fetchPayments = async () => {
+    if (!scoreData.trackingId || !formData.password) return;
+    setPaymentsLoading(true);
+    const { data } = await supabase.rpc('get_my_payments', {
+        p_tracking_id: scoreData.trackingId,
+        p_password: formData.password,
+    });
+    setPayments(data || []);
+    setPaymentsLoading(false);
+  };
+
+  useEffect(() => {
+    if (currentView !== 'dashboard') return;
+    fetchPayments();
+  }, [currentView, scoreData.trackingId]);
+
+  useEffect(() => {
+    if (currentView !== 'dashboard' || !scoreData.trackingId) return;
+    const channel = supabase
+      .channel(`my-payments-${scoreData.trackingId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchPayments)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentView, scoreData.trackingId]);
+
+  const handlePayNow = async (payment) => {
+    setPayingId(payment.id);
+    try {
+        const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+            body: { tracking_id: scoreData.trackingId, password: formData.password, payment_id: payment.id },
+        });
+        if (error || !data?.checkout_url) {
+            alert('Could not start payment. Please try again.');
+            return;
+        }
+        window.location.href = data.checkout_url;
+    } catch (err) {
+        console.error(err);
+        alert('Something went wrong starting your payment. Please try again.');
+    } finally {
+        setPayingId(null);
+    }
+  };
+
+  const handleBookClick = async () => {
+    setCheckingBookingPayment(true);
+    try {
+        const { data, error } = await supabase.rpc('ensure_consultation_payment', {
+            p_tracking_id: scoreData.trackingId,
+            p_password: formData.password,
+        });
+        if (error || !data || data.length === 0) {
+            alert('Could not start your booking. Please try again.');
+            return;
+        }
+        const consultationPayment = data[0];
+        setPayments(prev => {
+            const withoutThis = prev.filter(p => p.id !== consultationPayment.id);
+            return [consultationPayment, ...withoutThis];
+        });
+        setCurrentView('booking');
+        window.scrollTo(0, 0);
+    } catch (err) {
+        console.error(err);
+        alert('Something went wrong. Please try again.');
+    } finally {
+        setCheckingBookingPayment(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { id, value, type, checked } = e.target;
@@ -509,6 +586,16 @@ export default function Portal() {
                   <h2 className="text-3xl font-black text-[#0b1136] dark:text-white">Client Login</h2>
                   <p className="text-gray-500 dark:text-gray-400 mt-2">Access your saved visa application profile</p>
               </div>
+              {searchParams.get('payment') === 'success' && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+                    <i className="fas fa-check-circle"></i> Payment successful! Log in to continue.
+                </div>
+              )}
+              {searchParams.get('payment') === 'cancelled' && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+                    <i className="fas fa-exclamation-circle"></i> Payment was cancelled. Log in to try again.
+                </div>
+              )}
               <form onSubmit={handleLogin} className="space-y-5">
                   <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Tracking ID or Email</label>
@@ -1063,12 +1150,42 @@ export default function Portal() {
                               </p>
                           </div>
                       ) : (
-                          <button onClick={() => { setCurrentView('booking'); window.scrollTo(0,0); }} className="mt-8 w-full bg-white hover:bg-gray-100 text-[#0b1136] py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition relative z-10 text-sm md:text-base">
-                              <i className="fas fa-calendar-alt mr-2"></i> Book Formal Consultation
+                          <button onClick={handleBookClick} disabled={checkingBookingPayment} className="mt-8 w-full bg-white hover:bg-gray-100 text-[#0b1136] py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition relative z-10 text-sm md:text-base disabled:opacity-60">
+                              {checkingBookingPayment ? <><i className="fas fa-spinner fa-spin mr-2"></i>Loading...</> : <><i className="fas fa-calendar-alt mr-2"></i> Book Formal Consultation</>}
                           </button>
                       )}
                   </div>
               </div>
+
+              {/* Payments */}
+              {!paymentsLoading && payments.length > 0 && (
+                <div className="mt-8">
+                    <h3 className="text-lg font-black text-[#0b1136] dark:text-white mb-4">Payments</h3>
+                    <div className="space-y-4">
+                        {payments.map(p => (
+                            <div key={p.id} className="bg-white dark:bg-slate-700 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-600 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-white">{p.description}</p>
+                                    <p className="text-2xl font-black text-[#0b1136] dark:text-white mt-1">₱{Number(p.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                                </div>
+                                {p.status === 'paid' ? (
+                                    <span className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-4 py-2 rounded-xl font-bold text-sm w-fit">
+                                        <i className="fas fa-check-circle"></i> Paid
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => handlePayNow(p)}
+                                        disabled={payingId === p.id}
+                                        className="bg-[#b45309] hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-sm shadow-md transition disabled:opacity-50 w-fit"
+                                    >
+                                        {payingId === p.id ? <><i className="fas fa-spinner fa-spin mr-2"></i>Redirecting...</> : 'Pay Now'}
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1083,9 +1200,31 @@ export default function Portal() {
                   </div>
               </div>
 
+              {payments[0] && payments[0].status !== 'paid' ? (
+                <div className="bg-white dark:bg-slate-700 rounded-3xl p-8 md:p-12 shadow-xl border border-gray-100 dark:border-slate-600 max-w-lg mx-auto text-center">
+                    <div className="w-20 h-20 bg-orange-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 text-[#b45309] dark:text-amber-500 text-3xl">
+                        <i className="fas fa-lock"></i>
+                    </div>
+                    <h3 className="text-2xl font-black text-[#0b1136] dark:text-white mb-2">Consultation Fee Required</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">
+                        A one-time fee secures your formal consultation slot with our legal team. Once paid, you can pick your date and time.
+                    </p>
+                    <div className="bg-gray-50 dark:bg-slate-800 rounded-2xl p-6 mb-6">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{payments[0].description}</p>
+                        <p className="text-4xl font-black text-[#0b1136] dark:text-white">₱{Number(payments[0].amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <button
+                        onClick={() => handlePayNow(payments[0])}
+                        disabled={payingId === payments[0].id}
+                        className="w-full bg-[#b45309] hover:bg-amber-700 text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg transition disabled:opacity-50"
+                    >
+                        {payingId === payments[0].id ? <><i className="fas fa-spinner fa-spin mr-2"></i>Redirecting...</> : 'Pay Now'}
+                    </button>
+                </div>
+              ) : (
               <div className="bg-white dark:bg-slate-700 rounded-3xl p-6 md:p-10 shadow-xl border border-gray-100 dark:border-slate-600 max-w-4xl mx-auto">
                   <div className="grid md:grid-cols-2 gap-10">
-                      
+
                       {/* Calendar Section */}
                       <div>
                           <div className="flex justify-between items-center mb-6">
@@ -1180,7 +1319,8 @@ export default function Portal() {
                       </div>
                   </div>
               </div>
-              
+              )}
+
               {/* BOOKING SUCCESS MODAL */}
               {showSuccessModal && (
                 <div className="fixed inset-0 bg-[#0b1136]/80 backdrop-blur-sm z-50 flex items-center justify-center px-4">
