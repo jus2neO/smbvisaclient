@@ -17,6 +17,16 @@ const countriesList = [
     { name: "United Kingdom", flag: "🇬🇧" }, { name: "United States", flag: "🇺🇸" }
 ];
 
+const additionalDocTypes = [
+    { id: 'passport_copy', label: 'Passport Copy' },
+    { id: 'tor_copy', label: 'TOR Copy' },
+    { id: 'diploma_copy', label: 'Diploma Copy' },
+    { id: 'moi', label: 'Medium of Instruction (MOI)' },
+];
+
+const contactMethods = ['Viber', 'Messenger', 'WhatsApp', 'WeChat', 'Other'];
+const civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'];
+
 const questionBank = {
     canada: {
         step3: [
@@ -79,10 +89,12 @@ export default function Portal() {
   const [subStep, setSubStep] = useState(0); // Sub-sections within Step 1: 0=Personal Info, 1=Education, 2=Work History
   const [formData, setFormData] = useState({
       fname: '', lname: '', middleName: '', positionApplied: '',
-      email: '', phone: '', landline: '', facebook: '',
+      email: '', alternateEmail: '', phone: '', landline: '',
+      contactMethod: '', contactValue: '',
       birthDate: '',
-      gender: 'Male', heightCm: '', weightKg: '',
-      province: '', cityMunicipality: '', completeAddress: '',
+      gender: 'Male', civilStatus: '', citizenship: '', nationality: '', dependentsCount: '',
+      countryOfResidence: '', province: '', cityMunicipality: '', completeAddress: '', postalCode: '',
+      comment: '',
       referral: 'Social Media', terms: false, password: ''
   });
   
@@ -120,6 +132,13 @@ export default function Portal() {
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [payingId, setPayingId] = useState(null);
   const [checkingBookingPayment, setCheckingBookingPayment] = useState(false);
+
+  // Additional requirements (score screen) — either upload copies now, or
+  // confirm they'll bring physical copies to the appointment instead.
+  const [bringDocsInPerson, setBringDocsInPerson] = useState(false);
+  const [additionalDocs, setAdditionalDocs] = useState([]); // [{ type, path }] already saved
+  const [additionalDocFiles, setAdditionalDocFiles] = useState({}); // { [type]: File } pending upload
+  const [savingDocsChoice, setSavingDocsChoice] = useState(false);
 
   // Initialize view based on URL param
   useEffect(() => {
@@ -247,12 +266,24 @@ export default function Portal() {
     }
   };
 
+  const calculateAge = (birthDateStr) => {
+    if (!birthDateStr) return '';
+    const dob = new Date(birthDateStr);
+    if (Number.isNaN(dob.getTime())) return '';
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return age >= 0 ? String(age) : '';
+  };
+
   const handleAnswerSelect = (qId, optIndex, opt, questionText) => {
     setAnswers(prev => ({ ...prev, [qId]: { index: optIndex, value: opt.v, label: opt.l, question: questionText } }));
   };
 
   const validatePersonalInfo = () => {
-    if (!formData.positionApplied || !formData.fname || !formData.lname || !formData.email || emailError || !formData.phone) {
+    if (!formData.positionApplied || !formData.fname || !formData.lname || !formData.email || emailError || !formData.phone
+        || !formData.countryOfResidence || !formData.province || !formData.cityMunicipality || !formData.completeAddress) {
         alert('Please fill all required fields (*) correctly before continuing.');
         return false;
     }
@@ -399,16 +430,23 @@ export default function Portal() {
                 middle_name: formData.middleName || null,
                 position_applied: formData.positionApplied,
                 email: formData.email,
+                alternate_email: formData.alternateEmail || null,
                 phone: formData.phone,
                 landline: formData.landline || null,
-                facebook: formData.facebook || null,
+                contact_method: formData.contactMethod || null,
+                contact_value: formData.contactMethod ? (formData.contactValue || null) : null,
                 birth_date: birthDate,
                 gender: formData.gender,
-                height_cm: formData.heightCm || null,
-                weight_kg: formData.weightKg || null,
+                civil_status: formData.civilStatus || null,
+                citizenship: formData.citizenship || null,
+                nationality: formData.nationality || null,
+                dependents_count: formData.dependentsCount === '' ? null : Number(formData.dependentsCount),
+                country_of_residence: formData.countryOfResidence || null,
                 province: formData.province || null,
                 city_municipality: formData.cityMunicipality || null,
                 complete_address: formData.completeAddress || null,
+                postal_code: formData.postalCode || null,
+                comment: formData.comment || null,
                 referral: formData.referral,
                 destination_country: selectedCountryObj?.name,
                 destination_flag: selectedCountryObj?.flag,
@@ -483,6 +521,8 @@ export default function Portal() {
         setExistingAppointment(profile.appointment_date
             ? { date: profile.appointment_date, time: profile.appointment_time, type: profile.appointment_type }
             : null);
+        setBringDocsInPerson(!!profile.bring_docs_in_person);
+        setAdditionalDocs(profile.additional_docs || []);
 
         setCurrentView('dashboard');
         window.scrollTo(0,0);
@@ -492,6 +532,47 @@ export default function Portal() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
+    }
+  };
+
+  const handleAdditionalDocFileChange = (typeId, file) => {
+    setAdditionalDocFiles(prev => ({ ...prev, [typeId]: file || undefined }));
+  };
+
+  const handleSaveAdditionalDocs = async () => {
+    setSavingDocsChoice(true);
+    try {
+        let docs = additionalDocs;
+        if (!bringDocsInPerson) {
+            const uploaded = [];
+            for (const [typeId, file] of Object.entries(additionalDocFiles)) {
+                if (!file) continue;
+                const ext = file.name.split('.').pop();
+                const path = `${scoreData.trackingId}/additional/${typeId}-${Date.now()}.${ext}`;
+                const { error: upErr } = await supabase.storage.from('applicant-files').upload(path, file, { contentType: file.type });
+                if (upErr) throw upErr;
+                uploaded.push({ type: typeId, path });
+            }
+            if (uploaded.length > 0) {
+                docs = [...additionalDocs.filter(d => !uploaded.some(u => u.type === d.type)), ...uploaded];
+            }
+        }
+
+        const { data: ok, error } = await supabase.rpc('update_additional_docs', {
+            p_tracking_id: scoreData.trackingId,
+            p_password: formData.password,
+            p_bring_in_person: bringDocsInPerson,
+            p_docs: docs,
+        });
+        if (error || !ok) throw error || new Error('Could not save.');
+
+        setAdditionalDocs(docs);
+        setAdditionalDocFiles({});
+    } catch (err) {
+        console.error(err);
+        alert('Could not save your additional requirements. Please try again.');
+    } finally {
+        setSavingDocsChoice(false);
     }
   };
 
@@ -723,15 +804,19 @@ export default function Portal() {
                           </div>
                         </div>
 
-                        {/* --- Birth Date & Gender --- */}
-                        <div className="grid md:grid-cols-2 gap-6">
+                        {/* --- Birth Date, Age & Gender --- */}
+                        <div className="grid md:grid-cols-3 gap-6">
                           <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Birth Date:</label>
                             <input type="date" id="birthDate" className="form-input" max={new Date().toISOString().split('T')[0]} value={formData.birthDate} onChange={handleInputChange}/>
                           </div>
                           <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Age:</label>
+                            <input type="text" disabled className="form-input bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400" value={calculateAge(formData.birthDate)}/>
+                          </div>
+                          <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Gender:</label>
-                            <div className="flex items-center gap-6 pt-1">
+                            <div className="flex items-center gap-6 pt-3">
                               {['Male','Female'].map(g => (
                                 <label key={g} className="flex items-center gap-2 cursor-pointer">
                                   <input type="radio" name="gender" value={g} checked={formData.gender === g} onChange={() => setFormData(prev => ({...prev, gender: g}))} className="w-4 h-4 accent-[#0b1136]"/>
@@ -742,15 +827,31 @@ export default function Portal() {
                           </div>
                         </div>
 
-                        {/* --- Height/Weight & Mobile/Landline --- */}
-                        <div className="grid md:grid-cols-3 gap-6">
+                        {/* --- Civil Status, Citizenship, Nationality, Dependents --- */}
+                        <div className="grid md:grid-cols-4 gap-6">
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Height & Weight:</label>
-                            <div className="flex gap-2">
-                              <input type="text" inputMode="decimal" id="heightCm" className="form-input" placeholder="Height (cm)" value={formData.heightCm} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, ''); handleInputChange(e); }}/>
-                              <input type="text" inputMode="decimal" id="weightKg" className="form-input" placeholder="Weight (kg)" value={formData.weightKg} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, ''); handleInputChange(e); }}/>
-                            </div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Civil Status:</label>
+                            <select id="civilStatus" className="form-input" value={formData.civilStatus} onChange={handleInputChange}>
+                              <option value="">Please select</option>
+                              {civilStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
                           </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Citizenship:</label>
+                            <input type="text" id="citizenship" className="form-input" placeholder="e.g. Filipino" value={formData.citizenship} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Nationality:</label>
+                            <input type="text" id="nationality" className="form-input" placeholder="e.g. Filipino" value={formData.nationality} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">No. of Dependents:</label>
+                            <input type="text" inputMode="numeric" id="dependentsCount" className="form-input" placeholder="0" value={formData.dependentsCount} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); handleInputChange(e); }}/>
+                          </div>
+                        </div>
+
+                        {/* --- Mobile/Landline --- */}
+                        <div className="grid md:grid-cols-2 gap-6">
                           <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Mobile No.:</label>
                             <input type="tel" id="phone" className="form-input" placeholder="Mobile No." value={formData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9+]/g, ''); handleInputChange(e); }}/>
@@ -761,7 +862,7 @@ export default function Portal() {
                           </div>
                         </div>
 
-                        {/* --- Email & Facebook --- */}
+                        {/* --- Email & Alternate Email --- */}
                         <div className="grid md:grid-cols-2 gap-6">
                           <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Email Address:</label>
@@ -769,28 +870,56 @@ export default function Portal() {
                             {emailError && <p className="text-xs text-red-500 font-bold mt-1">{emailError}</p>}
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Facebook Account:</label>
-                            <input type="text" id="facebook" className="form-input" placeholder="Facebook profile URL or name" value={formData.facebook} onChange={handleInputChange}/>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Alternate Email (optional):</label>
+                            <input type="email" id="alternateEmail" className="form-input" placeholder="Alternate Email Address" value={formData.alternateEmail} onChange={handleInputChange}/>
                           </div>
                         </div>
 
-                        {/* --- Province / City / Address --- */}
+                        {/* --- Messaging App (optional) --- */}
                         <div className="grid md:grid-cols-2 gap-6">
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Province:</label>
-                            <select id="province" className="form-input" value={formData.province} onChange={handleInputChange}>
-                              <option value="">Please select</option>
-                              {["Abra","Agusan del Norte","Agusan del Sur","Aklan","Albay","Antique","Apayao","Aurora","Basilan","Bataan","Batanes","Batangas","Benguet","Biliran","Bohol","Bukidnon","Bulacan","Cagayan","Camarines Norte","Camarines Sur","Camiguin","Capiz","Catanduanes","Cavite","Cebu","Compostela Valley","Cotabato","Davao del Norte","Davao del Sur","Davao Occidental","Davao Oriental","Dinagat Islands","Eastern Samar","Guimaras","Ifugao","Ilocos Norte","Ilocos Sur","Iloilo","Isabela","Kalinga","La Union","Laguna","Lanao del Norte","Lanao del Sur","Leyte","Maguindanao","Marinduque","Masbate","Metro Manila","Misamis Occidental","Misamis Oriental","Mountain Province","Negros Occidental","Negros Oriental","Northern Samar","Nueva Ecija","Nueva Vizcaya","Occidental Mindoro","Oriental Mindoro","Palawan","Pampanga","Pangasinan","Quezon","Quirino","Rizal","Romblon","Samar","Sarangani","Siquijor","Sorsogon","South Cotabato","Southern Leyte","Sultan Kudarat","Sulu","Surigao del Norte","Surigao del Sur","Tarlac","Tawi-Tawi","Zambales","Zamboanga del Norte","Zamboanga del Sur","Zamboanga Sibugay"].map(p => <option key={p} value={p}>{p}</option>)}
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Messaging App (optional):</label>
+                            <select id="contactMethod" className="form-input" value={formData.contactMethod} onChange={handleInputChange}>
+                              <option value="">None</option>
+                              {contactMethods.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*City / Municipality:</label>
-                            <input type="text" id="cityMunicipality" className="form-input" placeholder="Please select" value={formData.cityMunicipality} onChange={handleInputChange}/>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Number / Handle:</label>
+                            <input type="text" id="contactValue" disabled={!formData.contactMethod} className="form-input disabled:bg-gray-100 dark:disabled:bg-slate-700" placeholder={formData.contactMethod ? `Your ${formData.contactMethod} number/handle` : 'Select a messaging app first'} value={formData.contactValue} onChange={handleInputChange}/>
                           </div>
                         </div>
+
+                        {/* --- Country of Residence / Province / City / Postal Code --- */}
+                        <div className="grid md:grid-cols-3 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Country of Residence:</label>
+                            <input type="text" id="countryOfResidence" className="form-input" placeholder="e.g. Philippines" value={formData.countryOfResidence} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*State / Province / Region:</label>
+                            <input type="text" id="province" className="form-input" placeholder="State / Province / Region" value={formData.province} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*City / Municipality:</label>
+                            <input type="text" id="cityMunicipality" className="form-input" placeholder="City / Municipality" value={formData.cityMunicipality} onChange={handleInputChange}/>
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Complete Address:</label>
+                            <input type="text" id="completeAddress" className="form-input" placeholder="Street / Unit / Building" value={formData.completeAddress} onChange={handleInputChange}/>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Postal / Post Code:</label>
+                            <input type="text" id="postalCode" className="form-input" placeholder="Postal / Post Code" value={formData.postalCode} onChange={handleInputChange}/>
+                          </div>
+                        </div>
+
+                        {/* --- Additional Info --- */}
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">*Complete Address:</label>
-                          <input type="text" id="completeAddress" className="form-input" placeholder="No. / Street / Barangay" value={formData.completeAddress} onChange={handleInputChange}/>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Additional Info (optional):</label>
+                          <textarea id="comment" rows={3} className="form-input resize-none" placeholder="Anything else about your circumstance you'd like us to know..." value={formData.comment} onChange={handleInputChange}/>
                         </div>
 
                         {/* --- File Uploads --- */}
@@ -1186,6 +1315,42 @@ export default function Portal() {
                     </div>
                 </div>
               )}
+
+              {/* Additional Requirements */}
+              <div className="mt-8">
+                  <h3 className="text-lg font-black text-[#0b1136] dark:text-white mb-1">Additional Requirements</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">You'll need these for your interview — upload copies now, or bring the physical documents to your appointment instead.</p>
+                  <div className="bg-white dark:bg-slate-700 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-600">
+                      <label className="flex items-center gap-3 cursor-pointer mb-5">
+                          <input type="checkbox" checked={bringDocsInPerson} onChange={(e) => setBringDocsInPerson(e.target.checked)} className="w-5 h-5 text-[#0b1136] rounded border-gray-300 focus:ring-[#0b1136]"/>
+                          <span className="text-sm font-bold text-gray-700 dark:text-gray-200">I'll bring the physical documents to my appointment instead of uploading them.</span>
+                      </label>
+
+                      {!bringDocsInPerson && (
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            {additionalDocTypes.map(dt => {
+                                const saved = additionalDocs.find(d => d.type === dt.id);
+                                return (
+                                    <div key={dt.id}>
+                                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">{dt.label}:</label>
+                                        <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 hover:border-[#0b1136] dark:hover:border-blue-400 transition">
+                                            <i className={`fas ${saved ? 'fa-check-circle text-green-500' : 'fa-file-upload text-[#0b1136] dark:text-blue-400'} text-lg`}></i>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                                {additionalDocFiles[dt.id] ? additionalDocFiles[dt.id].name : saved ? 'Uploaded — choose to replace' : 'Choose File'}
+                                            </span>
+                                            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={(e) => handleAdditionalDocFileChange(dt.id, e.target.files[0])}/>
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                      )}
+
+                      <button onClick={handleSaveAdditionalDocs} disabled={savingDocsChoice} className="mt-6 bg-[#0b1136] hover:bg-blue-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition shadow-md disabled:opacity-60">
+                          {savingDocsChoice ? <><i className="fas fa-spinner fa-spin mr-2"></i>Saving...</> : 'Save'}
+                      </button>
+                  </div>
+              </div>
             </div>
           )}
 

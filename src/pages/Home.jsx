@@ -43,7 +43,6 @@ export default function Home() {
       <section className="hero-gradient h-[600px] flex items-center justify-center text-center text-white px-4">
         <div className="max-w-4xl">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">Fulfilling Lives</h1>
-          <p className="text-xl md:text-2xl mb-8 text-gray-200">Your trusted partner in global migration, education, and career opportunities.</p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Student Visa</span>
             <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">Scholarship</span>
@@ -193,6 +192,8 @@ export default function Home() {
                   <h4 className="text-sm font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">Support Offices</h4>
                   <div className="grid grid-cols-2 gap-y-3">
                     <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium"><span className="w-1.5 h-1.5 bg-smb-gold rounded-full"></span> Canada</div>
+                    <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium"><span className="w-1.5 h-1.5 bg-smb-gold rounded-full"></span> Alberta</div>
+                    <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium"><span className="w-1.5 h-1.5 bg-smb-gold rounded-full"></span> Calgary</div>
                     <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium"><span className="w-1.5 h-1.5 bg-smb-gold rounded-full"></span> UK</div>
                     <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium"><span className="w-1.5 h-1.5 bg-smb-gold rounded-full"></span> Dubai</div>
                     <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium"><span className="w-1.5 h-1.5 bg-smb-gold rounded-full"></span> Europe</div>
@@ -210,7 +211,6 @@ export default function Home() {
               </div>
               <div className="space-y-6 flex-grow">
                 <div className="flex items-start gap-4"><i className="fas fa-map-marker-alt text-smb-gold dark:text-amber-500 mt-1.5"></i><div><p className="text-lg leading-tight mb-1">Ortigas Center, Pasig Metro Manila</p><p className="text-lg leading-tight">Bacolod City</p></div></div>
-                <div className="flex items-start gap-4"><i className="fas fa-phone-alt text-smb-gold dark:text-amber-500 mt-1.5"></i><div className="text-2xl font-bold tracking-tight"><p>+63 900 900 4000</p><p>+63 992 969 9308</p></div></div>
                 <div className="pt-6 border-t border-white/10">
                   <h4 className="text-sm font-bold text-blue-300 uppercase tracking-widest mb-4">Regional Reach</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-y-2 text-sm font-medium text-blue-100">
